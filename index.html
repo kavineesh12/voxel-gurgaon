@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voxel Gurgaon — 100 Years</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div id="top-left">
+        <h1>VOXEL GURGAON</h1>
+        <div id="era-card">
+          <div id="era-year">2025</div>
+          <div id="era-text"></div>
+        </div>
+      </div>
+
+      <div id="view-bar">
+        <button class="view-btn" data-view="aerial">Aerial</button>
+        <button class="view-btn active" data-view="straight">Straight</button>
+        <button class="view-btn" data-view="eye">Eye level</button>
+        <button class="view-btn" data-view="tour">Tour</button>
+        <button id="daynight" title="Day / night">🌙</button>
+      </div>
+
+      <div id="timeline">
+        <button class="era-btn" data-era="0">1920</button>
+        <button class="era-btn" data-era="1">1940</button>
+        <button class="era-btn" data-era="2">1960</button>
+        <button class="era-btn" data-era="3">1980</button>
+        <button class="era-btn" data-era="4">2000</button>
+        <button class="era-btn active" data-era="5">NOW</button>
+        <button id="play" title="Play through the decades">▶</button>
+      </div>
+
+      <div id="hint">drag to orbit · scroll to zoom · right-drag to pan</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
