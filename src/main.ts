@@ -12,6 +12,7 @@ import {
   type Info,
 } from './world'
 import { createMovers } from './movers'
+import { computeRoutes, findPlace, PLACES, type RouteResult } from './routes'
 
 /* ------------------------------------------------------------------ */
 /* renderer / scene / lights                                           */
@@ -256,6 +257,152 @@ canvas.addEventListener('pointerup', (e) => {
 })
 
 /* ------------------------------------------------------------------ */
+/* Directions — type from → to, get routes with typical-traffic ETAs   */
+/* ------------------------------------------------------------------ */
+
+const dirPanel = document.querySelector<HTMLDivElement>('#directions')!
+const dirFrom = document.querySelector<HTMLInputElement>('#dir-from')!
+const dirTo = document.querySelector<HTMLInputElement>('#dir-to')!
+const dirResults = document.querySelector<HTMLDivElement>('#dir-results')!
+const dirTraffic = document.querySelector<HTMLDivElement>('#dir-traffic')!
+{
+  const dl = document.querySelector<HTMLDataListElement>('#places-list')!
+  for (const p of PLACES) {
+    const opt = document.createElement('option')
+    opt.value = p.name
+    dl.appendChild(opt)
+  }
+}
+
+const ROUTE_COLORS: Record<string, number> = { primary: 0x4a8af4, alt: 0x8a94a8, metro: 0xe8c020, auto: 0x2a9a4a }
+let routeMeshes: THREE.Object3D[] = []
+let currentRoutes: RouteResult[] = []
+
+function clearRoutes(): void {
+  for (const m of routeMeshes) scene.remove(m)
+  routeMeshes = []
+}
+
+function drawRoute(route: RouteResult, color: number, thick: boolean): void {
+  const pts = route.path.map(([x, y, z]) => new THREE.Vector3(x, y + (thick ? 0.4 : 0), z))
+  if (pts.length < 2) return
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.0)
+  const tube = new THREE.Mesh(
+    new THREE.TubeGeometry(curve, Math.min(220, pts.length * 6), thick ? 1.5 : 0.9, 6, false),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: thick ? 0.96 : 0.55, depthTest: true }),
+  )
+  tube.renderOrder = 4
+  scene.add(tube)
+  routeMeshes.push(tube)
+}
+
+function pinMarker(x: number, z: number, color: number): void {
+  const g = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }))
+  pole.position.y = 4
+  const head = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 8), new THREE.MeshBasicMaterial({ color }))
+  head.position.y = 9
+  g.add(pole, head)
+  g.position.set(x, 0, z)
+  scene.add(g)
+  routeMeshes.push(g)
+}
+
+function frameRoutes(): void {
+  const box = new THREE.Box3()
+  for (const r of currentRoutes) {
+    for (const [x, y, z] of r.path) box.expandByPoint(new THREE.Vector3(x, y, z))
+  }
+  if (box.isEmpty()) return
+  const center = box.getCenter(new THREE.Vector3())
+  const size = box.getSize(new THREE.Vector3())
+  const span = Math.max(size.x, size.z, 80)
+  flyTo({
+    pos: new THREE.Vector3(center.x + span * 0.15, span * 1.0 + 70, center.z + span * 0.75),
+    target: center,
+  })
+}
+
+function renderRoutes(selected: number): void {
+  clearRoutes()
+  currentRoutes.forEach((r, i) => {
+    if (i === selected) return
+    drawRoute(r, r.mode === 'metro' ? ROUTE_COLORS.metro : r.mode === 'auto' ? ROUTE_COLORS.auto : ROUTE_COLORS.alt, false)
+  })
+  const sel = currentRoutes[selected]
+  if (sel) {
+    drawRoute(sel, sel.mode === 'metro' ? ROUTE_COLORS.metro : sel.mode === 'auto' ? ROUTE_COLORS.auto : ROUTE_COLORS.primary, true)
+    const first = sel.path[0]
+    const last = sel.path[sel.path.length - 1]
+    pinMarker(first[0], first[2], 0x35c26a)
+    pinMarker(last[0], last[2], 0xe0483a)
+  }
+  dirResults.querySelectorAll('.route-card').forEach((c, i) => c.classList.toggle('selected', i === selected))
+}
+
+function runDirections(): void {
+  const from = findPlace(dirFrom.value)
+  const to = findPlace(dirTo.value)
+  dirResults.innerHTML = ''
+  dirTraffic.textContent = ''
+  clearRoutes()
+  if (!from || !to) {
+    dirResults.innerHTML = `<div class="dir-error">Couldn't find “${!from ? dirFrom.value : dirTo.value}”. Try one of the suggestions.</div>`
+    return
+  }
+  if (from === to) {
+    dirResults.innerHTML = '<div class="dir-error">You are already there.</div>'
+    return
+  }
+  // routes are computed on the modern network — jump to NOW
+  if (world.era() !== LAST) setEra(LAST as EraIndex)
+  const { traffic, routes } = computeRoutes(from, to)
+  currentRoutes = routes
+  dirTraffic.textContent = `⏱ ${traffic.label} (estimates, not live data)`
+  if (!routes.length) {
+    dirResults.innerHTML = '<div class="dir-error">No route found.</div>'
+    return
+  }
+  const icons: Record<string, string> = { car: '🚗', auto: '🛺', metro: '🚇' }
+  routes.forEach((r, i) => {
+    const card = document.createElement('div')
+    card.className = 'route-card'
+    card.innerHTML = `
+      <div class="route-top">
+        <span class="route-title">${icons[r.mode]} ${r.title}</span>
+        <span class="route-time">${Math.round(r.minutes)} min</span>
+      </div>
+      <div class="route-sub">${r.km.toFixed(1)} km · ${r.via}${r.note ? ' · ' + r.note : ''}</div>`
+    card.addEventListener('click', () => renderRoutes(i))
+    dirResults.appendChild(card)
+  })
+  renderRoutes(0)
+  frameRoutes()
+}
+
+document.querySelector('#directions-btn')!.addEventListener('click', () => {
+  dirPanel.classList.toggle('hidden')
+  if (!dirPanel.classList.contains('hidden')) dirFrom.focus()
+})
+document.querySelector('#dir-close')!.addEventListener('click', () => {
+  dirPanel.classList.add('hidden')
+  clearRoutes()
+})
+document.querySelector('#dir-go')!.addEventListener('click', runDirections)
+document.querySelector('#dir-swap')!.addEventListener('click', () => {
+  const t = dirFrom.value
+  dirFrom.value = dirTo.value
+  dirTo.value = t
+  if (currentRoutes.length) runDirections()
+})
+for (const input of [dirFrom, dirTo]) {
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runDirections()
+    e.stopPropagation()
+  })
+}
+
+/* ------------------------------------------------------------------ */
 /* City Guide — a narrated tour for first-time visitors                */
 /* ------------------------------------------------------------------ */
 
@@ -426,6 +573,12 @@ window.addEventListener('resize', () => {
   goToView,
   camera,
   showGuideStop,
+  route(from: string, to: string) {
+    dirFrom.value = from
+    dirTo.value = to
+    dirPanel.classList.remove('hidden')
+    runDirections()
+  },
   get era() {
     return world.era()
   },

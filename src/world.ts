@@ -1112,6 +1112,29 @@ export function buildWorld(scene: THREE.Scene): World {
       sub: 'opened 2013',
       story: 'The food-and-nightlife strip at CyberCity’s feet — 60+ restaurants where all of corporate Gurgaon decompresses.',
     })
+    // Gateway Tower — the ship-shaped icon at Shankar Chowk
+    {
+      const ship = new THREE.Group()
+      const shipSide = facadeMat('glass', '#74a8c4', 10)
+      for (let i = 0; i < 8; i++) {
+        const off = Math.pow(i / 7, 1.6) * 5
+        const slab = new THREE.Mesh(
+          new THREE.BoxGeometry(13 - i * 0.8, 4.4, 7),
+          [shipSide, shipSide, mat(0x2e4a5e), mat(0x2e4a5e), shipSide, shipSide],
+        )
+        slab.position.set(off, 2.2 + i * 4.4, 0)
+        slab.castShadow = true
+        ship.add(slab)
+      }
+      ship.position.set(4, 0, -206)
+      ship.rotation.y = 0.5
+      setInfo(ship, {
+        name: 'DLF Gateway Tower',
+        sub: 'the “ship building”',
+        story: 'The curved prow-shaped tower at Shankar Chowk — the first thing drivers from Delhi recognise. Gurgaon’s unofficial logo.',
+      })
+      track(ship, 6)
+    }
     // rapid metro loop
     const rapidInfo: Info = {
       name: 'Rapid Metro',

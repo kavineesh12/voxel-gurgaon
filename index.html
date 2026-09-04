@@ -24,6 +24,7 @@
         <button class="view-btn" data-view="orbit">Orbit</button>
         <button id="labels" class="active" title="Toggle place labels">Labels</button>
         <button id="guide" title="Guided city tour">🧭 City Guide</button>
+        <button id="directions-btn" title="From → To routes">🚗 Directions</button>
         <button id="daynight" title="Day / night">🌙</button>
       </div>
 
@@ -37,6 +38,28 @@
         <button class="era-btn" data-era="6">2020</button>
         <button class="era-btn active" data-era="7">NOW</button>
         <button id="play" title="Play through the decades">▶</button>
+      </div>
+
+      <div id="directions" class="hidden">
+        <div id="dir-head">
+          <span>Directions</span>
+          <button id="dir-close">×</button>
+        </div>
+        <div class="dir-row">
+          <span class="dir-dot from"></span>
+          <input id="dir-from" list="places-list" placeholder="From — e.g. CyberCity" />
+        </div>
+        <div class="dir-row">
+          <span class="dir-dot to"></span>
+          <input id="dir-to" list="places-list" placeholder="To — e.g. Sector 4" />
+        </div>
+        <div class="dir-actions">
+          <button id="dir-swap" title="Swap">⇅</button>
+          <button id="dir-go">Find routes</button>
+        </div>
+        <div id="dir-traffic"></div>
+        <div id="dir-results"></div>
+        <datalist id="places-list"></datalist>
       </div>
 
       <div id="info-card" class="hidden">
