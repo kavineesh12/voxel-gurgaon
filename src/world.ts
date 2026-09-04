@@ -25,6 +25,8 @@ export interface Info {
   name: string
   sub: string
   story: string
+  /** "what's here" — notable venues (curated; live listings would need a places API) */
+  pois?: string[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -995,6 +997,11 @@ export function buildWorld(scene: THREE.Scene): World {
       name: 'DLF CyberCity tower',
       sub: 'built 1999–2015',
       story: 'Part of the CyberCity office district — floors of code, calls and finance where Nathupur’s mustard fields stood.',
+      pois: [
+        '🏢 tenants: Google, Deloitte, Ericsson, KPMG…',
+        '🍽 eat at Cyber Hub, at the foot of the towers',
+        '🚈 Rapid Metro loops overhead',
+      ],
     }
     tower(30, -180, 14, 22, 'glass', '#5f88a8', 0x3d5a72, 4, LAST, cyberInfo)
     tower(55, -170, 12, 18, 'glass', '#6f94b2', 0x3d5a72, 4, LAST, cyberInfo)
@@ -1002,6 +1009,7 @@ export function buildWorld(scene: THREE.Scene): World {
       name,
       sub: `opened ${year}`,
       story: 'One of the MG Road malls that taught north India to hang out in air-conditioning — multiplex on top, food court in the middle, arcade below.',
+      pois: ['🎬 cinema on the top floor', '🍔 food court', '🕺 the 2000s nightclub scene started here'],
     })
     bld(30, -6, 16, 12, 13, 'shop', '#c8a06a', 0x8a6a42, 4, LAST, 0, mallInfo('Sahara Mall', '2001'))
     bld(58, -18, 15, 13, 13, 'shop', '#b06848', 0x7c4630, 4, LAST, 0, mallInfo('MGF Metropolitan', '2001'))
@@ -1015,6 +1023,11 @@ export function buildWorld(scene: THREE.Scene): World {
       name: 'DLF CyberCity tower',
       sub: 'built 1999–2015',
       story: 'Part of the CyberCity office district — floors of code, calls and finance where Nathupur’s mustard fields stood.',
+      pois: [
+        '🏢 tenants: Google, Deloitte, Ericsson, KPMG…',
+        '🍽 eat at Cyber Hub, at the foot of the towers',
+        '🚈 Rapid Metro loops overhead',
+      ],
     }
     tower(70, -178, 14, 34, 'glass', '#4f7f9f', 0x2e4a5e, 5, LAST, cyberInfo)
     tower(40, -158, 13, 30, 'glass', '#5f93af', 0x2e4a5e, 5, LAST, cyberInfo)
@@ -1033,6 +1046,7 @@ export function buildWorld(scene: THREE.Scene): World {
       name: 'Kingdom of Dreams',
       sub: 'opened 2010',
       story: 'India’s Bollywood-style live-entertainment palace — home of the Zangoora musical and the Culture Gully food street.',
+      pois: ['🎭 Zangoora — The Gypsy Prince', '🎭 Jhumroo', '🍛 Culture Gully food boulevard', '🍺 Sector 29 microbreweries next door'],
     })
     track(kod, 5)
     // Ambience Mall (2007)
@@ -1040,6 +1054,7 @@ export function buildWorld(scene: THREE.Scene): World {
       name: 'Ambience Mall',
       sub: 'opened 2007',
       story: 'The “1-km mall” on NH-48 at the Delhi border — a kilometre of shopfront on every floor.',
+      pois: ['🛍 Zara, H&M, Lifestyle', '🎬 PVR multiplex', '🎳 bowling & gaming zone', '🍽 food court the size of a football pitch'],
     })
     // metro
     const metroInfo: Info = {
@@ -1096,6 +1111,11 @@ export function buildWorld(scene: THREE.Scene): World {
       name: 'DLF CyberCity tower',
       sub: 'built 1999–2015',
       story: 'Part of the CyberCity office district — floors of code, calls and finance where Nathupur’s mustard fields stood.',
+      pois: [
+        '🏢 tenants: Google, Deloitte, Ericsson, KPMG…',
+        '🍽 eat at Cyber Hub, at the foot of the towers',
+        '🚈 Rapid Metro loops overhead',
+      ],
     }
     const cyber: [number, number, number, number][] = [
       [26, -196, 15, 44],
@@ -1111,6 +1131,15 @@ export function buildWorld(scene: THREE.Scene): World {
       name: 'Cyber Hub',
       sub: 'opened 2013',
       story: 'The food-and-nightlife strip at CyberCity’s feet — 60+ restaurants where all of corporate Gurgaon decompresses.',
+      pois: [
+        '🍽 Farzi Café',
+        '🍽 SodaBottleOpenerWala',
+        '🍽 Burma Burma',
+        '🍺 The Beer Café',
+        '🥟 Yum Yum Cha',
+        '🍷 The Wine Company',
+        '🎭 amphitheatre gigs on weekends',
+      ],
     })
     // Gateway Tower — the ship-shaped icon at Shankar Chowk
     {

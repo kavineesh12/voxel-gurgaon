@@ -210,13 +210,37 @@ const infoCard = document.querySelector<HTMLDivElement>('#info-card')!
 const infoName = document.querySelector<HTMLDivElement>('#info-name')!
 const infoSub = document.querySelector<HTMLDivElement>('#info-sub')!
 const infoStory = document.querySelector<HTMLDivElement>('#info-story')!
+const infoPois = document.querySelector<HTMLDivElement>('#info-pois')!
 document.querySelector('#info-close')!.addEventListener('click', () => infoCard.classList.add('hidden'))
 
 function showInfo(info: Info): void {
   infoName.textContent = info.name
   infoSub.textContent = info.sub
   infoStory.textContent = info.story
+  infoPois.innerHTML = ''
+  if (info.pois?.length) {
+    const h = document.createElement('div')
+    h.className = 'pois-head'
+    h.textContent = "What's here"
+    infoPois.appendChild(h)
+    for (const p of info.pois) {
+      const chip = document.createElement('div')
+      chip.className = 'poi-chip'
+      chip.textContent = p
+      infoPois.appendChild(chip)
+    }
+  }
   infoCard.classList.remove('hidden')
+}
+
+/** fly the camera in close to an inspected spot */
+function flyToPoint(x: number, y: number, z: number): void {
+  const target = new THREE.Vector3(x, Math.min(y + 6, 30), z)
+  const back = camera.position.clone().sub(target)
+  back.y = 0
+  if (back.lengthSq() < 1) back.set(30, 0, 60)
+  back.normalize().multiplyScalar(85)
+  flyTo({ pos: new THREE.Vector3(target.x + back.x, 52, target.z + back.z), target })
 }
 
 const raycaster = new THREE.Raycaster()
@@ -242,6 +266,7 @@ canvas.addEventListener('pointerup', (e) => {
       const info = o.userData?.info as Info | undefined
       if (info) {
         showInfo(info)
+        flyToPoint(hit.point.x, hit.point.y, hit.point.z)
         return
       }
       o = o.parent
@@ -250,6 +275,7 @@ canvas.addEventListener('pointerup', (e) => {
       const era = world.era()
       const road = roadAt(hit.point.x, hit.point.z, era)
       showInfo(road ?? areaAt(hit.point.x, hit.point.z, era))
+      flyToPoint(hit.point.x, 0, hit.point.z)
       return
     }
     // hit something anonymous (person/vehicle/label) — keep looking deeper
@@ -323,8 +349,51 @@ function frameRoutes(): void {
   })
 }
 
+/* animated vehicle that drives the selected route */
+let routeVehicle: {
+  group: THREE.Group
+  pts: THREE.Vector3[]
+  cum: number[]
+  total: number
+  d: number
+  speed: number
+} | null = null
+let followRide = false
+let selectedTubeMat: THREE.MeshBasicMaterial | null = null
+
+function makeRouteVehicle(mode: string): THREE.Group {
+  const g = new THREE.Group()
+  const m = (c: number): THREE.MeshStandardMaterial =>
+    new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 })
+  if (mode === 'metro') {
+    const car = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 7), m(0xf0f0f0))
+    car.position.y = 1.2
+    const band = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.55, 7.05), m(0xe8c020))
+    band.position.y = 1.0
+    g.add(car, band)
+  } else if (mode === 'auto') {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.2, 3), m(0x2a7a44))
+    body.position.y = 1.0
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.0, 2.5), m(0xe8c02a))
+    top.position.set(0, 2.05, -0.15)
+    g.add(body, top)
+  } else {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.1, 5), m(0x4a8af4))
+    body.position.y = 1.0
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.0, 2.6), m(0x1e2a34))
+    cab.position.set(0, 2.0, -0.2)
+    g.add(body, cab)
+  }
+  g.traverse((o) => {
+    if (o instanceof THREE.Mesh) o.castShadow = true
+  })
+  return g
+}
+
 function renderRoutes(selected: number): void {
   clearRoutes()
+  routeVehicle = null
+  selectedTubeMat = null
   currentRoutes.forEach((r, i) => {
     if (i === selected) return
     drawRoute(r, r.mode === 'metro' ? ROUTE_COLORS.metro : r.mode === 'auto' ? ROUTE_COLORS.auto : ROUTE_COLORS.alt, false)
@@ -332,12 +401,56 @@ function renderRoutes(selected: number): void {
   const sel = currentRoutes[selected]
   if (sel) {
     drawRoute(sel, sel.mode === 'metro' ? ROUTE_COLORS.metro : sel.mode === 'auto' ? ROUTE_COLORS.auto : ROUTE_COLORS.primary, true)
+    const tube = routeMeshes[routeMeshes.length - 1] as THREE.Mesh
+    selectedTubeMat = tube.material as THREE.MeshBasicMaterial
     const first = sel.path[0]
     const last = sel.path[sel.path.length - 1]
     pinMarker(first[0], first[2], 0x35c26a)
     pinMarker(last[0], last[2], 0xe0483a)
+    // spawn the animated ride
+    const pts = sel.path.map(([x, y, z]) => new THREE.Vector3(x, Math.max(y - 1.4, 0.2), z))
+    const cum = [0]
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + pts[i].distanceTo(pts[i - 1]))
+    const vehicle = makeRouteVehicle(sel.mode)
+    scene.add(vehicle)
+    routeMeshes.push(vehicle)
+    routeVehicle = { group: vehicle, pts, cum, total: cum[cum.length - 1], d: 0, speed: 26 }
   }
   dirResults.querySelectorAll('.route-card').forEach((c, i) => c.classList.toggle('selected', i === selected))
+  // show steps only on the selected card
+  dirResults.querySelectorAll<HTMLElement>('.route-steps').forEach((el, i) => {
+    el.style.display = i === selected ? 'block' : 'none'
+  })
+}
+
+function routePos(d: number, out: THREE.Vector3): void {
+  if (!routeVehicle) return
+  const rv = routeVehicle
+  const dd = ((d % rv.total) + rv.total) % rv.total
+  let i = 1
+  while (i < rv.cum.length - 1 && rv.cum[i] < dd) i++
+  const seg = rv.cum[i] - rv.cum[i - 1]
+  const t = seg > 0 ? (dd - rv.cum[i - 1]) / seg : 0
+  out.lerpVectors(rv.pts[i - 1], rv.pts[i], t)
+}
+
+const rvTmp = new THREE.Vector3()
+const rvAhead = new THREE.Vector3()
+
+function updateRouteVehicle(dt: number, elapsed: number): void {
+  if (selectedTubeMat) selectedTubeMat.opacity = 0.75 + Math.sin(elapsed * 3.5) * 0.22
+  if (!routeVehicle) return
+  routeVehicle.d += routeVehicle.speed * dt
+  routePos(routeVehicle.d, rvTmp)
+  routePos(routeVehicle.d + 2.5, rvAhead)
+  routeVehicle.group.position.copy(rvTmp)
+  if (rvAhead.distanceToSquared(rvTmp) > 0.001) routeVehicle.group.lookAt(rvAhead)
+  if (followRide && !camAnim) {
+    const dir = rvTmp.clone().sub(rvAhead).setY(0).normalize().multiplyScalar(34)
+    camera.position.lerp(new THREE.Vector3(rvTmp.x + dir.x, rvTmp.y + 22, rvTmp.z + dir.z), 1 - Math.pow(0.002, dt))
+    controls.target.lerp(new THREE.Vector3(rvTmp.x, rvTmp.y + 2, rvTmp.z), 1 - Math.pow(0.002, dt))
+    camera.lookAt(controls.target)
+  }
 }
 
 function runDirections(): void {
@@ -367,15 +480,26 @@ function runDirections(): void {
   routes.forEach((r, i) => {
     const card = document.createElement('div')
     card.className = 'route-card'
+    const steps = r.steps.map((s) => `<li>${s}</li>`).join('')
     card.innerHTML = `
       <div class="route-top">
         <span class="route-title">${icons[r.mode]} ${r.title}</span>
         <span class="route-time">${Math.round(r.minutes)} min</span>
       </div>
-      <div class="route-sub">${r.km.toFixed(1)} km · ${r.via}${r.note ? ' · ' + r.note : ''}</div>`
+      <div class="route-sub">${r.km.toFixed(1)} km · ${r.via}${r.note ? ' · ' + r.note : ''}</div>
+      <div class="route-steps"><ol>${steps}</ol>
+        <button class="route-follow">🎥 Follow the ride</button>
+      </div>`
     card.addEventListener('click', () => renderRoutes(i))
+    card.querySelector('.route-follow')!.addEventListener('click', (e) => {
+      e.stopPropagation()
+      followRide = !followRide
+      ;(e.currentTarget as HTMLButtonElement).textContent = followRide ? '🎥 Stop following' : '🎥 Follow the ride'
+      if (!followRide) frameRoutes()
+    })
     dirResults.appendChild(card)
   })
+  followRide = false
   renderRoutes(0)
   frameRoutes()
 }
@@ -387,6 +511,9 @@ document.querySelector('#directions-btn')!.addEventListener('click', () => {
 document.querySelector('#dir-close')!.addEventListener('click', () => {
   dirPanel.classList.add('hidden')
   clearRoutes()
+  routeVehicle = null
+  selectedTubeMat = null
+  followRide = false
 })
 document.querySelector('#dir-go')!.addEventListener('click', runDirections)
 document.querySelector('#dir-swap')!.addEventListener('click', () => {
@@ -508,6 +635,7 @@ camera.position.copy(VIEWS.straight.pos)
 controls.target.copy(VIEWS.straight.target)
 
 let last = performance.now()
+let elapsedT = 0
 
 function frame(now: number): void {
   requestAnimationFrame(frame)
@@ -517,6 +645,7 @@ function frame(now: number): void {
 }
 
 function tick(dt: number): void {
+  elapsedT += dt
   if (nightT !== nightTarget) {
     nightT = THREE.MathUtils.clamp(nightT + (nightTarget === 1 ? dt : -dt) / 1.3, 0, 1)
     applyNight(nightT)
@@ -524,6 +653,7 @@ function tick(dt: number): void {
 
   world.update(dt)
   movers.update(dt)
+  updateRouteVehicle(dt, elapsedT)
 
   if (playing) {
     playTimer += dt
@@ -553,7 +683,7 @@ function tick(dt: number): void {
       }
       camAnim = null
     }
-  } else {
+  } else if (!followRide) {
     controls.update()
   }
 

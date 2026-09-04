@@ -46,6 +46,36 @@ export const PLACES: Place[] = [
   { name: 'Sector 4', x: -222, z: 66, aliases: ['sector 4/7', 'new colony'] },
   { name: 'Sector 5', x: -252, z: 82 },
   { name: 'Aravalli Park', x: 225, z: -120, aliases: ['aravalli biodiversity park', 'aravalli'] },
+  // sectors & colonies
+  { name: 'Sector 9', x: -262, z: 130 },
+  { name: 'Sector 10', x: -258, z: 170 },
+  { name: 'Sector 12', x: -160, z: 120 },
+  { name: 'Sector 17', x: -10, z: 60 },
+  { name: 'Sector 18', x: 30, z: -90, aliases: ['udyog vihar 18'] },
+  { name: 'Sector 21', x: -180, z: -60 },
+  { name: 'Sector 22', x: -140, z: -100 },
+  { name: 'Sector 23', x: -190, z: -130 },
+  { name: 'Sector 27', x: 90, z: 60 },
+  { name: 'Sector 28', x: 60, z: 30 },
+  { name: 'Sector 30', x: -70, z: 170 },
+  { name: 'Sector 32', x: -30, z: 240 },
+  { name: 'Sector 38', x: -60, z: 250 },
+  { name: 'Sector 40', x: 10, z: 220 },
+  { name: 'Sector 43', x: 90, z: 140 },
+  { name: 'Sector 45', x: 30, z: 180 },
+  { name: 'Sector 46', x: 80, z: 220 },
+  { name: 'Sector 47', x: 40, z: 260 },
+  { name: 'Sector 50', x: 140, z: 240 },
+  { name: 'Sector 51', x: 170, z: 200 },
+  { name: 'Sector 54', x: 200, z: 120, aliases: ['sector 54 chowk'] },
+  { name: 'Sector 55', x: 225, z: 140 },
+  { name: 'Sector 57', x: 260, z: 180 },
+  { name: 'Sushant Lok 1', x: -10, z: 120, aliases: ['sushant lok'] },
+  { name: 'South City 1', x: -40, z: 160 },
+  { name: 'DLF Phase 2', x: 85, z: -70, aliases: ['dlf 2'] },
+  { name: 'DLF Phase 3', x: 115, z: -110, aliases: ['dlf 3'] },
+  { name: 'DLF Phase 5', x: 210, z: 90, aliases: ['dlf 5'] },
+  { name: 'Sector 29 Leisure Valley', x: -105, z: 115, aliases: ['leisure valley'] },
 ]
 
 export function findPlace(query: string): Place | null {
@@ -242,6 +272,73 @@ export interface RouteResult {
   /** polyline in world coords, [x, y, z] */
   path: [number, number, number][]
   note?: string
+  steps: string[]
+}
+
+/* ---------- turn-by-turn ---------- */
+
+function compass(dx: number, dz: number): string {
+  // x → east, z → south; north is −z
+  const a = (Math.atan2(dx, -dz) * 180) / Math.PI
+  const names = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+  return names[Math.round(((a + 360) % 360) / 45) % 8]
+}
+
+function fmtDist(km: number): string {
+  return km >= 0.95 ? `${km.toFixed(1)} km` : `${Math.max(50, Math.round((km * 1000) / 50) * 50)} m`
+}
+
+function shortRoad(name: string): string {
+  return name.split(' · ')[0].split(' (')[0]
+}
+
+function buildSteps(nodes: number[], fromName: string, toName: string): string[] {
+  interface Leg {
+    road: string
+    km: number
+    dx: number
+    dz: number // first segment direction of the leg
+    lx: number
+    lz: number // last segment direction of the leg
+  }
+  const legs: Leg[] = []
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = GRAPH[nodes[i]]
+    const b = GRAPH[nodes[i + 1]]
+    const e = a.edges.find((k) => k.to === nodes[i + 1])
+    if (!e) continue
+    const dx = b.x - a.x
+    const dz = b.z - a.z
+    const km = e.len * U2KM
+    const road = shortRoad(e.road)
+    const last = legs[legs.length - 1]
+    if (last && last.road === road) {
+      last.km += km
+      last.lx = dx
+      last.lz = dz
+    } else {
+      legs.push({ road, km, dx, dz, lx: dx, lz: dz })
+    }
+  }
+  const steps: string[] = []
+  legs.forEach((leg, i) => {
+    if (i === 0) {
+      steps.push(`Head ${compass(leg.dx, leg.dz)} on ${leg.road} — ${fmtDist(leg.km)}`)
+    } else {
+      const prev = legs[i - 1]
+      const cross = prev.lx * leg.dz - prev.lz * leg.dx
+      const dot = prev.lx * leg.dx + prev.lz * leg.dz
+      const mag = Math.hypot(prev.lx, prev.lz) * Math.hypot(leg.dx, leg.dz)
+      let turn: string
+      if (Math.abs(cross) < mag * 0.25 && dot > 0) turn = 'Continue onto'
+      else if (cross > 0) turn = Math.abs(cross) > mag * 0.85 ? 'Turn sharp right onto' : 'Turn right onto'
+      else turn = Math.abs(cross) > mag * 0.85 ? 'Turn sharp left onto' : 'Turn left onto'
+      steps.push(`${turn} ${leg.road} — ${fmtDist(leg.km)}`)
+    }
+  })
+  if (steps.length === 0) steps.push(`Walk from ${fromName}`)
+  steps.push(`Arrive at ${toName}`)
+  return steps
 }
 
 function dijkstra(
@@ -401,6 +498,7 @@ export function computeRoutes(from: Place, to: Place): { traffic: TrafficState; 
       km: drive.km + (nf.dist + nt.dist) * U2KM,
       via: `via ${viaLabel(drive.nodes)}`,
       path: nodesToPath(drive.nodes, from, to),
+      steps: buildSteps(drive.nodes, from.name, to.name),
     })
     // alternate drive: penalize the fastest route's edges
     const penalty = new Map<string, number>()
@@ -420,6 +518,7 @@ export function computeRoutes(from: Place, to: Place): { traffic: TrafficState; 
           km: alt.km + (nf.dist + nt.dist) * U2KM,
           via: `via ${viaLabel(alt.nodes)}`,
           path: nodesToPath(alt.nodes, from, to),
+          steps: buildSteps(alt.nodes, from.name, to.name),
         })
       }
     }
@@ -434,6 +533,7 @@ export function computeRoutes(from: Place, to: Place): { traffic: TrafficState; 
         via: `via ${viaLabel(autoR.nodes)}`,
         path: nodesToPath(autoR.nodes, from, to),
         note: `≈ ₹${Math.max(30, Math.round(autoR.km * 15 + 25))}`,
+        steps: buildSteps(autoR.nodes, from.name, to.name),
       })
     }
   }
@@ -476,6 +576,12 @@ export function computeRoutes(from: Place, to: Place): { traffic: TrafficState; 
       via: `${sa.name} → ${sb.name} (${stops} stop${stops > 1 ? 's' : ''})`,
       path,
       note: 'immune to traffic',
+      steps: [
+        `Walk to ${sa.name} metro station — ${fmtDist(da * U2KM)}`,
+        `Ride the Yellow Line ${stops} stop${stops > 1 ? 's' : ''} to ${sb.name} — ~${Math.round(rideMin)} min`,
+        `Walk to ${to.name} — ${fmtDist(db * U2KM)}`,
+        `Arrive at ${to.name}`,
+      ],
     })
   }
 
