@@ -1,17 +1,14 @@
 import * as THREE from 'three'
-import { RAILWAY, ROADS, type EraIndex } from './world'
+import { LAST, METRO_PTS, RAILWAY, RAPID_PTS, ROADS, type EraIndex } from './world'
 
 /*
- * Everything that moves: block people, era-appropriate vehicles, and the
- * Delhi–Rewari train. Each mover carries an era band and simply appears /
- * disappears with the timeline.
+ * Everything that moves — block people dressed for their era, era-correct
+ * vehicles, and the trains. Movers appear/disappear with the timeline.
  */
 
 function mat(color: number): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.02 })
 }
-
-/* ---------- polyline follower ---------- */
 
 class Poly {
   pts: THREE.Vector3[]
@@ -41,7 +38,9 @@ class Poly {
   }
 }
 
-/* ---------- block person (Minecraft-ish, not Lego) ---------- */
+/* ---------- block people, dressed for their decade ---------- */
+
+export type Wardrobe = 'colonial' | 'midcentury' | 'nineties' | 'modern'
 
 interface Person {
   group: THREE.Group
@@ -49,32 +48,77 @@ interface Person {
   legR: THREE.Mesh
 }
 
-const SKIN_TONES = [0xc68642, 0x8d5524, 0xe0ac69, 0xa06a3c]
-const CLOTH = [0xb03a3a, 0x3a6ab0, 0x3a8a4a, 0xc08a2a, 0x8a4aa0, 0x607080, 0xc06080, 0x4a8a8a]
+const SKIN = [0xc68642, 0x8d5524, 0xe0ac69, 0xa06a3c]
 
-function makePerson(rnd: () => number): Person {
+interface Outfit {
+  shirt: number
+  pants: number
+  headwear?: number // turban / cap block
+  sari?: boolean // single-colour draped silhouette
+}
+
+function pickOutfit(w: Wardrobe, rnd: () => number): Outfit {
+  const r = rnd()
+  switch (w) {
+    case 'colonial': {
+      // dhoti-kurta whites with bright turbans; women in ghagra colours
+      if (r < 0.4) return { shirt: 0xe8e0cc, pants: 0xf2ecd8, headwear: [0xd06020, 0xc03030, 0xe8e0cc][Math.floor(rnd() * 3)] }
+      if (r < 0.7) return { shirt: 0xded4b8, pants: 0xe8e0cc, headwear: 0xd8a028 }
+      return { sari: true, shirt: [0xb03060, 0x2a7a44, 0x3a5ab0, 0xc07020][Math.floor(rnd() * 4)], pants: 0 }
+    }
+    case 'midcentury': {
+      // khadi, Gandhi caps, cotton saris
+      if (r < 0.35) return { shirt: 0xe8e4d8, pants: 0xd8d2c0, headwear: 0xf2eee2 }
+      if (r < 0.65) return { shirt: 0xc8b890, pants: 0x8a7a5a }
+      return { sari: true, shirt: [0x8a3a5a, 0x3a6a8a, 0x6a8a3a][Math.floor(rnd() * 3)], pants: 0 }
+    }
+    case 'nineties': {
+      // polyester shirts, trousers, brighter saris
+      if (r < 0.55) return { shirt: [0xa8763a, 0x6a7a8a, 0x8a5a3a, 0x4a6a5a][Math.floor(rnd() * 4)], pants: 0x4a4438 }
+      return { sari: true, shirt: [0xc03060, 0x30a060, 0xe0a020, 0x6040c0][Math.floor(rnd() * 4)], pants: 0 }
+    }
+    case 'modern': {
+      // office wear, tees, kurtis with jeans
+      if (r < 0.4) return { shirt: [0xf0f0f0, 0x9ab8d8, 0x60c0d8][Math.floor(rnd() * 3)], pants: 0x2a3444 }
+      if (r < 0.75) return { shirt: [0xd84040, 0x30a080, 0xf0b020, 0x8050c0, 0x202428][Math.floor(rnd() * 5)], pants: 0x35507a }
+      return { shirt: [0xe06090, 0x40b0a0, 0xd88030][Math.floor(rnd() * 3)], pants: 0x35507a }
+    }
+  }
+}
+
+function makePerson(w: Wardrobe, rnd: () => number): Person {
   const g = new THREE.Group()
-  const skin = SKIN_TONES[Math.floor(rnd() * SKIN_TONES.length)]
-  const shirt = CLOTH[Math.floor(rnd() * CLOTH.length)]
-  const pants = CLOTH[Math.floor(rnd() * CLOTH.length)]
+  const skin = SKIN[Math.floor(rnd() * SKIN.length)]
+  const o = pickOutfit(w, rnd)
   const legGeo = new THREE.BoxGeometry(0.42, 1.1, 0.45)
   legGeo.translate(0, -0.55, 0)
-  const legL = new THREE.Mesh(legGeo, mat(pants))
+  const legMat = mat(o.sari ? o.shirt : o.pants)
+  const legL = new THREE.Mesh(legGeo, legMat)
   legL.position.set(-0.25, 1.1, 0)
-  const legR = new THREE.Mesh(legGeo, mat(pants))
+  const legR = new THREE.Mesh(legGeo, legMat)
   legR.position.set(0.25, 1.1, 0)
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.2, 0.55), mat(shirt))
+  const body = new THREE.Mesh(new THREE.BoxGeometry(o.sari ? 1.15 : 1.0, 1.2, o.sari ? 0.7 : 0.55), mat(o.shirt))
   body.position.y = 1.7
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), mat(skin))
   head.position.y = 2.7
   g.add(legL, legR, body, head)
-  g.traverse((o) => {
-    if (o instanceof THREE.Mesh) o.castShadow = true
+  if (o.headwear !== undefined) {
+    const turban = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.32, 0.85), mat(o.headwear))
+    turban.position.y = 3.15
+    g.add(turban)
+  } else if (o.sari) {
+    // pallu over the head in early eras
+    const pallu = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.28, 0.82), mat(o.shirt))
+    pallu.position.y = 3.12
+    g.add(pallu)
+  }
+  g.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) obj.castShadow = true
   })
   return { group: g, legL, legR }
 }
 
-/* ---------- vehicles (single-group voxel shapes) ---------- */
+/* ---------- voxel vehicles ---------- */
 
 function makeCar(color: number): THREE.Group {
   const g = new THREE.Group()
@@ -136,8 +180,7 @@ function makeBullockCart(): THREE.Group {
 function makeTrain(era: EraIndex): THREE.Group {
   const g = new THREE.Group()
   const steam = era < 3
-  const engineColor = steam ? 0x2a2a2e : 0x3a4a8a
-  const engine = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.6, 6), mat(engineColor))
+  const engine = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.6, 6), mat(steam ? 0x2a2a2e : 0x3a4a8a))
   engine.position.set(0, 1.5, 0)
   engine.castShadow = true
   g.add(engine)
@@ -146,7 +189,7 @@ function makeTrain(era: EraIndex): THREE.Group {
     funnel.position.set(0, 3.4, 2)
     g.add(funnel)
   }
-  const coachColor = steam ? 0x7a3a2a : era === 5 ? 0xd8d8d8 : 0x35558a
+  const coachColor = steam ? 0x7a3a2a : era >= 6 ? 0xd8d8d8 : 0x35558a
   for (let i = 1; i <= 3; i++) {
     const coach = new THREE.Mesh(new THREE.BoxGeometry(2.3, 2.4, 6), mat(coachColor))
     coach.position.set(0, 1.4, -i * 7)
@@ -156,14 +199,14 @@ function makeTrain(era: EraIndex): THREE.Group {
   return g
 }
 
-function makeMetro(): THREE.Group {
+function makeMetro(band: number): THREE.Group {
   const g = new THREE.Group()
   for (let i = 0; i < 3; i++) {
     const car = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 6.4), mat(0xe0e0e0))
     car.position.set(0, 1.2, -i * 7)
-    const band = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.5, 6.45), mat(0xe8c020))
-    band.position.set(0, 1.0, -i * 7)
-    g.add(car, band)
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.5, 6.45), mat(band))
+    stripe.position.set(0, 1.0, -i * 7)
+    g.add(car, stripe)
   }
   return g
 }
@@ -220,6 +263,13 @@ export function createMovers(scene: THREE.Scene): Movers {
     })
   }
 
+  function crowd(pts: [number, number][], count: number, from: number, to: number, w: Wardrobe): void {
+    for (let i = 0; i < count; i++) {
+      const p = makePerson(w, rnd)
+      add(p.group, pts, 1.5 + rnd(), from, to, { pingpong: true, person: p, offset: rnd() })
+    }
+  }
+
   const nhRoad = ROADS[0].pts
   const railwayRoad = ROADS[1].pts
   const mgRoad = ROADS[4].pts.slice(0, 3)
@@ -227,79 +277,78 @@ export function createMovers(scene: THREE.Scene): Movers {
   const gcRoad = ROADS[5].pts
   const cyberLoop = ROADS[10].pts
 
-  /* people — bazaar in every era, malls/cyber hub later */
+  /* people — same streets, changing wardrobes */
   const bazaarWalk: [number, number][] = [
     [-214, 138],
     [-190, 160],
     [-166, 182],
     [-190, 160],
   ]
-  for (let i = 0; i < 8; i++) {
-    const p = makePerson(rnd)
-    add(p.group, bazaarWalk, 1.6 + rnd(), 0, 5, { pingpong: true, person: p, offset: rnd() })
-  }
+  crowd(bazaarWalk, 7, 0, 1, 'colonial')
+  crowd(bazaarWalk, 7, 2, 3, 'midcentury')
+  crowd(bazaarWalk, 6, 4, LAST, 'modern')
+
   const villagePath: [number, number][] = [
     [-60, 176],
     [-40, 150],
     [-93, 70],
   ]
-  for (let i = 0; i < 4; i++) {
-    const p = makePerson(rnd)
-    add(p.group, villagePath, 1.4 + rnd(), 0, 3, { pingpong: true, person: p, offset: rnd() })
-  }
+  crowd(villagePath, 4, 0, 2, 'colonial')
+  crowd(villagePath, 3, 3, 4, 'nineties')
+
   const mallWalk: [number, number][] = [
     [22, -1],
     [58, -13],
     [88, -27],
   ]
-  for (let i = 0; i < 6; i++) {
-    const p = makePerson(rnd)
-    add(p.group, mallWalk, 1.8 + rnd(), 4, 5, { pingpong: true, person: p, offset: rnd() })
-  }
+  crowd(mallWalk, 4, 4, 4, 'nineties')
+  crowd(mallWalk, 6, 5, LAST, 'modern')
+
   const cyberWalk: [number, number][] = [
     [84, -200],
     [60, -188],
     [40, -170],
   ]
-  for (let i = 0; i < 6; i++) {
-    const p = makePerson(rnd)
-    add(p.group, cyberWalk, 1.9 + rnd(), 5, 5, { pingpong: true, person: p, offset: rnd() })
-  }
+  crowd(cyberWalk, 6, 6, LAST, 'modern')
 
-  /* era vehicles on the Delhi road */
+  const stationWalk: [number, number][] = [
+    [-206, 168],
+    [-186, 170],
+  ]
+  crowd(stationWalk, 3, 0, 2, 'colonial')
+  crowd(stationWalk, 3, 3, LAST, 'modern')
+
+  /* vehicles by era */
   for (let i = 0; i < 2; i++) add(makeBullockCart(), nhRoad, 2.2, 0, 1, { offset: rnd() })
   add(makeBullockCart(), railwayRoad, 1.8, 0, 2, { pingpong: true })
   for (let i = 0; i < 2; i++) add(makeLorry(), nhRoad, 9, 1, 3, { offset: rnd() })
-  add(makeBus(), nhRoad, 10, 2, 5, { offset: rnd() })
+  add(makeBus(), nhRoad, 10, 2, LAST, { offset: rnd() })
   for (let i = 0; i < 3; i++) add(makeCar(0x333333), nhRoad, 11, 2, 3, { offset: rnd() })
-  // modern traffic
   const carColors = [0xc0c0c0, 0x8a2a2a, 0x2a4a8a, 0x222222, 0xd8d8d8]
-  for (let i = 0; i < 6; i++) {
-    add(makeCar(carColors[i % carColors.length]), nhRoad, 15 + rnd() * 6, 4, 5, { offset: rnd() })
+  for (let i = 0; i < 4; i++) {
+    add(makeCar(carColors[i % carColors.length]), nhRoad, 14 + rnd() * 5, 4, 5, { offset: rnd() })
+  }
+  for (let i = 0; i < 7; i++) {
+    add(makeCar(carColors[(i + 1) % carColors.length]), nhRoad, 15 + rnd() * 6, 6, LAST, { offset: rnd() })
   }
   for (let i = 0; i < 4; i++) {
-    add(makeCar(carColors[(i + 2) % carColors.length]), mgRoad, 12, 3, 5, { pingpong: true, offset: rnd() })
+    add(makeCar(carColors[(i + 2) % carColors.length]), mgRoad, 12, 3, LAST, { pingpong: true, offset: rnd() })
   }
-  for (let i = 0; i < 3; i++) add(makeAuto(), mgRoad, 8, 3, 5, { pingpong: true, offset: rnd() })
-  add(makeAuto(), hudaRoad, 8, 3, 5, { pingpong: true })
-  for (let i = 0; i < 2; i++) add(makeCar(0xd8d8d8), gcRoad, 12, 4, 5, { pingpong: true, offset: rnd() })
-  for (let i = 0; i < 2; i++) add(makeCar(0x334455), cyberLoop, 9, 4, 5, { offset: rnd() })
-  add(makeLorry(), nhRoad, 12, 4, 5, { offset: rnd() })
-  add(makeBus(), mgRoad, 9, 3, 5, { pingpong: true, offset: 0.3 })
+  for (let i = 0; i < 3; i++) add(makeAuto(), mgRoad, 8, 3, LAST, { pingpong: true, offset: rnd() })
+  add(makeAuto(), hudaRoad, 8, 3, LAST, { pingpong: true })
+  for (let i = 0; i < 2; i++) add(makeCar(0xd8d8d8), gcRoad, 12, 4, LAST, { pingpong: true, offset: rnd() })
+  for (let i = 0; i < 2; i++) add(makeCar(0x334455), cyberLoop, 9, 4, LAST, { offset: rnd() })
+  add(makeLorry(), nhRoad, 12, 4, LAST, { offset: rnd() })
+  add(makeBus(), mgRoad, 9, 3, LAST, { pingpong: true, offset: 0.3 })
 
-  /* trains: steam (→1960), diesel (1980–2000), modern (now) + metro */
+  /* trains + metros */
   add(makeTrain(0), RAILWAY, 14, 0, 2, { pingpong: true })
-  add(makeTrain(3), RAILWAY, 20, 3, 4, { pingpong: true })
-  add(makeTrain(5), RAILWAY, 24, 5, 5, { pingpong: true })
-  const metroPts: [number, number][] = [
-    [190, -117],
-    [103, -36],
-    [-93, 65],
-    [-90, 210],
-  ]
-  add(makeMetro(), metroPts, 16, 5, 5, { y: 9.9, pingpong: true })
+  add(makeTrain(3), RAILWAY, 20, 3, 5, { pingpong: true })
+  add(makeTrain(7), RAILWAY, 24, 6, LAST, { pingpong: true })
+  add(makeMetro(0xe8c020), METRO_PTS, 16, 5, LAST, { y: 9.9, pingpong: true })
+  add(makeMetro(0x3a6ab0), RAPID_PTS, 12, 6, LAST, { y: 7.9 })
 
-  let era: EraIndex = 5
+  let era: EraIndex = LAST as EraIndex
 
   function setEra(e: EraIndex): void {
     era = e

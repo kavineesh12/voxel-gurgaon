@@ -21,7 +21,9 @@
         <button class="view-btn" data-view="aerial">Aerial</button>
         <button class="view-btn active" data-view="straight">Straight</button>
         <button class="view-btn" data-view="eye">Eye level</button>
-        <button class="view-btn" data-view="tour">Tour</button>
+        <button class="view-btn" data-view="orbit">Orbit</button>
+        <button id="labels" class="active" title="Toggle place labels">Labels</button>
+        <button id="guide" title="Guided city tour">🧭 City Guide</button>
         <button id="daynight" title="Day / night">🌙</button>
       </div>
 
@@ -31,11 +33,31 @@
         <button class="era-btn" data-era="2">1960</button>
         <button class="era-btn" data-era="3">1980</button>
         <button class="era-btn" data-era="4">2000</button>
-        <button class="era-btn active" data-era="5">NOW</button>
+        <button class="era-btn" data-era="5">2010</button>
+        <button class="era-btn" data-era="6">2020</button>
+        <button class="era-btn active" data-era="7">NOW</button>
         <button id="play" title="Play through the decades">▶</button>
       </div>
 
-      <div id="hint">drag to orbit · scroll to zoom · right-drag to pan</div>
+      <div id="info-card" class="hidden">
+        <button id="info-close">×</button>
+        <div id="info-name"></div>
+        <div id="info-sub"></div>
+        <div id="info-story"></div>
+      </div>
+
+      <div id="guide-card" class="hidden">
+        <div id="guide-title"></div>
+        <div id="guide-text"></div>
+        <div id="guide-nav">
+          <button id="guide-prev">← Back</button>
+          <span id="guide-step"></span>
+          <button id="guide-next">Next →</button>
+          <button id="guide-end">End tour</button>
+        </div>
+      </div>
+
+      <div id="hint">click a building or road for its history · drag to orbit · scroll to zoom</div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

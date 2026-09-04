@@ -1,40 +1,46 @@
 import * as THREE from 'three'
 
 /*
- * Voxel Gurgaon through time — 1920 to today in 20-year steps.
+ * Voxel Gurgaon through time — 1920 to today.
+ * Eras: 1920, 1940, 1960, 1980, 2000, 2010, 2020, NOW.
  * Coordinates: x → east, z → south, 1 unit ≈ 10 m, plate spans ±300.
- * Real geography: the old railway town in the south-west, the Delhi–Jaipur
- * road (NH-8/48) cutting diagonally, MG Road and DLF/CyberCity in the
- * north-east, the Aravalli ridge along the east.
  */
 
-export const ERAS = [1920, 1940, 1960, 1980, 2000, 2025] as const
-export type EraIndex = 0 | 1 | 2 | 3 | 4 | 5
+export const ERAS = [1920, 1940, 1960, 1980, 2000, 2010, 2020, 2025] as const
+export type EraIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+export const LAST = 7
 
 export const ERA_CAPTIONS: string[] = [
-  'A dusty tehsil town of British Punjab. Gurgaon is a huddle of mud-brick homes around Sadar Bazaar and the railway station, ringed by wheat fields and Aravalli scrub. Population ≈ 5,000.',
-  'Civil-lines bungalows and a busier bazaar. Lorries now share the dirt Delhi–Jaipur road with tongas and bullock carts; the district town administers a farming countryside.',
-  "Independent India's district headquarters. Grain markets hum, a water tower rises, villages like Jharsa and Sikanderpur grow — but Gurgaon is still farmland to the horizon.",
-  "The turning point. HUDA (1977) starts carving sectors from the fields and Maruti's car plant (1983) rises off the Delhi road, which is finally paved. The first planned colonies appear.",
-  "DLF City rises on village land — gated phases, Udyog Vihar's factory sheds, Signature Towers at IFFCO Chowk, and the first malls on MG Road. The 'Millennium City' takes shape.",
-  "CyberCity's glass skyline, the Yellow Line and Rapid Metro, Cyber Hub, Kingdom of Dreams and the Golf Course Road towers — some 2.5 million people live where the fields were.",
+  'A dusty tehsil town of British Punjab — mud-brick homes around Sadar Bazaar and the railway station, wheat fields to the horizon. Men wear dhotis, kurtas and bright turbans; women in ghagras and odhnis fill the bazaar. Population ≈ 5,000.',
+  'Civil-lines bungalows and a busier bazaar. Khadi and Gandhi caps appear in the crowd as the freedom movement grows; lorries share the dirt Delhi–Jaipur road with tongas and bullock carts.',
+  "Independent India's district headquarters. Grain markets hum, a water tower rises. Cotton saris and kurta-pyjama in town, turbans in the fields — and Gurgaon is still farmland to the horizon.",
+  "The turning point: HUDA (1977) carves the first sectors and Maruti's car plant (1983) rises off the newly-paved Delhi road. Polyester shirts, flared trousers and Bajaj scooters arrive.",
+  'DLF City spreads over village land — gated phases, Udyog Vihar factories, Signature Towers, and the first malls on MG Road. Jeans and mall-culture arrive; call-centre cabs run all night.',
+  'The Metro arrives (Yellow Line, 2010). Kingdom of Dreams opens, Ambience Mall anchors the border, CyberCity keeps climbing. Office lanyards, kurtis-with-jeans, the great commute begins.',
+  'Millennium City at full tilt — Cyber Hub (2013), the Rapid Metro loop, high-rises in every sector. Athleisure, delivery riders and startup hoodies define the street.',
+  "Gurgaon today: CyberCity's glass skyline, two metro systems, Golf Course Road's condo canyon — some 2.5 million people where the fields were a century ago.",
 ]
 
+export interface Info {
+  name: string
+  sub: string
+  story: string
+}
+
 /* ------------------------------------------------------------------ */
-/* shared road & rail geometry (painted onto the ground + used by movers) */
+/* roads — geometry + history (click a road to read it)                */
 /* ------------------------------------------------------------------ */
 
 export interface Road {
   pts: [number, number][]
-  /** width (world units) per era index; 0 = not built yet */
-  width: number[]
-  /** style per era: d=dirt p=paved x=expressway */
+  width: number[] // per era, 0 = not built
   style: ('d' | 'p' | 'x' | '-')[]
+  name: string
+  story: string
 }
 
 export const ROADS: Road[] = [
   {
-    // Delhi–Jaipur road → NH-8 → NH-48
     pts: [
       [146, -294],
       [3, -174],
@@ -42,93 +48,112 @@ export const ROADS: Road[] = [
       [-240, 146],
       [-300, 180],
     ],
-    width: [8, 8, 9, 14, 20, 22],
-    style: ['d', 'd', 'd', 'p', 'x', 'x'],
+    width: [8, 8, 9, 14, 18, 20, 22, 22],
+    style: ['d', 'd', 'd', 'p', 'x', 'x', 'x', 'x'],
+    name: 'NH-48 · Delhi–Jaipur Road',
+    story:
+      'The ancient Delhi–Jaipur route. A dusty camel-and-tonga track until the 1960s, paved as NH-8 in the 70s, and an eight-lane expressway with the IFFCO Chowk flyover today. Everything in new Gurgaon grew along this line.',
   },
   {
-    // Old Railway Road: station/old town → Delhi road
     pts: [
       [-190, 160],
       [-93, 65],
     ],
-    width: [5, 5, 6, 10, 12, 12],
-    style: ['d', 'd', 'd', 'p', 'p', 'p'],
+    width: [5, 5, 6, 10, 12, 12, 12, 12],
+    style: ['d', 'd', 'd', 'p', 'p', 'p', 'p', 'p'],
+    name: 'Old Railway Road',
+    story:
+      "Old Gurgaon's spine — it linked the 1873 railway station and Sadar Bazaar to the Delhi road. The old town still shops, marries and celebrates along it.",
   },
   {
-    // Sadar Bazaar cross streets
     pts: [
       [-222, 132],
       [-158, 188],
     ],
-    width: [4, 4, 5, 7, 8, 8],
-    style: ['d', 'd', 'd', 'p', 'p', 'p'],
+    width: [4, 4, 5, 7, 8, 8, 8, 8],
+    style: ['d', 'd', 'd', 'p', 'p', 'p', 'p', 'p'],
+    name: 'Sadar Bazaar',
+    story:
+      'The original market street — cloth, bangles, grain and jewellery since the 1800s. Every era of Gurgaon has shopped here; it is still packed on festival days.',
   },
   {
     pts: [
       [-222, 188],
       [-158, 132],
     ],
-    width: [4, 4, 5, 7, 8, 8],
-    style: ['d', 'd', 'd', 'p', 'p', 'p'],
+    width: [4, 4, 5, 7, 8, 8, 8, 8],
+    style: ['d', 'd', 'd', 'p', 'p', 'p', 'p', 'p'],
+    name: 'Sadar Bazaar cross lane',
+    story: 'A bazaar cross-lane of the old town — kirana shops below, family homes above, unchanged in plan for a century.',
   },
   {
-    // MG Road (Mehrauli–Gurgaon)
     pts: [
       [-93, 65],
       [103, -36],
       [190, -117],
       [235, -160],
     ],
-    width: [0, 0, 5, 10, 14, 15],
-    style: ['-', '-', 'd', 'p', 'p', 'p'],
+    width: [0, 0, 5, 10, 14, 15, 15, 15],
+    style: ['-', '-', 'd', 'p', 'p', 'p', 'p', 'p'],
+    name: 'MG Road (Mehrauli–Gurgaon Road)',
+    story:
+      "A village track to Mehrauli that became Gurgaon's first glamour street — the mall mile of the 2000s, with the Yellow Line running overhead since 2010.",
   },
   {
-    // Golf Course Road
     pts: [
       [103, -36],
       [170, 30],
       [240, 95],
     ],
-    width: [0, 0, 0, 0, 12, 14],
-    style: ['-', '-', '-', '-', 'p', 'p'],
+    width: [0, 0, 0, 0, 10, 12, 14, 14],
+    style: ['-', '-', '-', '-', 'p', 'p', 'p', 'p'],
+    name: 'Golf Course Road',
+    story:
+      "Laid through DLF's phases in the 1990s, named for the golf course beside it — now a canyon of luxury condos and the Rapid Metro's southern arm.",
   },
   {
-    // HUDA corridor (Jharsa road, south from IFFCO)
     pts: [
       [-93, 65],
       [-90, 210],
       [-88, 290],
     ],
-    width: [0, 0, 4, 10, 12, 12],
-    style: ['-', '-', 'd', 'p', 'p', 'p'],
+    width: [0, 0, 4, 10, 12, 12, 12, 12],
+    style: ['-', '-', 'd', 'p', 'p', 'p', 'p', 'p'],
+    name: 'Jharsa Road (HUDA corridor)',
+    story:
+      'From IFFCO Chowk south past Jharsa village toward Sohna. HUDA built its sectors along it in the 80s; the Yellow Line follows it to HUDA City Centre.',
   },
   {
-    // sector grid east (1980+)
     pts: [
       [100, -140],
       [100, 130],
     ],
-    width: [0, 0, 0, 8, 10, 10],
-    style: ['-', '-', '-', 'p', 'p', 'p'],
+    width: [0, 0, 0, 8, 10, 10, 10, 10],
+    style: ['-', '-', '-', 'p', 'p', 'p', 'p', 'p'],
+    name: 'Sector Road (east)',
+    story: 'A HUDA master-plan sector road of the 1980s — straight lines drawn across old field boundaries.',
   },
   {
     pts: [
       [-20, -30],
       [-16, 230],
     ],
-    width: [0, 0, 0, 8, 10, 10],
-    style: ['-', '-', '-', 'p', 'p', 'p'],
+    width: [0, 0, 0, 8, 10, 10, 10, 10],
+    style: ['-', '-', '-', 'p', 'p', 'p', 'p', 'p'],
+    name: 'Sector Road (central)',
+    story: 'A HUDA sector road of the 1980s, connecting the new colonies to MG Road and the old town.',
   },
   {
     pts: [
       [-20, 120],
       [100, 124],
     ],
-    width: [0, 0, 0, 0, 9, 9],
-    style: ['-', '-', '-', '-', 'p', 'p'],
+    width: [0, 0, 0, 0, 9, 9, 9, 9],
+    style: ['-', '-', '-', '-', 'p', 'p', 'p', 'p'],
+    name: 'Sector connector',
+    story: 'A 1990s connector stitching the HUDA sectors to DLF City.',
   },
   {
-    // CyberCity loop road (2000+)
     pts: [
       [3, -174],
       [30, -205],
@@ -137,12 +162,15 @@ export const ROADS: Road[] = [
       [40, -132],
       [3, -174],
     ],
-    width: [0, 0, 0, 0, 8, 10],
-    style: ['-', '-', '-', '-', 'p', 'p'],
+    width: [0, 0, 0, 0, 8, 9, 10, 10],
+    style: ['-', '-', '-', '-', 'p', 'p', 'p', 'p'],
+    name: 'CyberCity loop road',
+    story:
+      "The service loop around DLF CyberCity, built on Nathupur village's fields in the late 1990s. The Rapid Metro has circled above it since 2013.",
   },
 ]
 
-/** railway: Delhi–Rewari line through Gurgaon station (all eras) */
+/** Delhi–Rewari railway (1873) */
 export const RAILWAY: [number, number][] = [
   [-300, 40],
   [-215, 130],
@@ -150,8 +178,139 @@ export const RAILWAY: [number, number][] = [
   [-160, 300],
 ]
 
+/** Yellow Line metro (2010+) */
+export const METRO_PTS: [number, number][] = [
+  [190, -117],
+  [103, -36],
+  [-93, 65],
+  [-90, 210],
+]
+
+/** Rapid Metro loop (2013+) */
+export const RAPID_PTS: [number, number][] = [
+  [10, -170],
+  [32, -198],
+  [78, -190],
+  [86, -152],
+  [42, -138],
+  [10, -170],
+]
+
 /* ------------------------------------------------------------------ */
-/* pixel textures (NearestFilter = voxel look)                         */
+/* areas — click open ground to learn the neighbourhood                */
+/* ------------------------------------------------------------------ */
+
+interface Area {
+  x1: number
+  z1: number
+  x2: number
+  z2: number
+  from: number
+  name: string
+  sub: string
+  story: string
+}
+
+const AREAS: Area[] = [
+  {
+    x1: -250, z1: 100, x2: -130, z2: 220, from: 0,
+    name: 'Old Gurgaon',
+    sub: 'the original town',
+    story: 'The tehsil town that gave the city its name — bazaars, mohallas and the 1873 railway station. Everything east of here is younger than 1980.',
+  },
+  {
+    x1: 180, z1: -300, x2: 300, z2: 0, from: 0,
+    name: 'Aravalli Ridge',
+    sub: 'the oldest thing on the map',
+    story: 'A spur of the Aravalli range — among the oldest mountains on Earth. Scrub forest, nilgai and leopards; today partly protected as the Aravalli Biodiversity Park.',
+  },
+  {
+    x1: -20, z1: -240, x2: 130, z2: -120, from: 4,
+    name: 'DLF CyberCity',
+    sub: 'built on Nathupur village fields',
+    story: "India's densest office district — 30 lakh sq ft of glass where mustard grew until the 1990s. Half of corporate Gurgaon badges in here every morning.",
+  },
+  {
+    x1: -160, z1: -260, x2: -40, z2: -100, from: 4,
+    name: 'Udyog Vihar',
+    sub: 'industrial estate, 1980s–90s',
+    story: 'Garment exporters, electronics units and startup lofts in HSIIDC sheds along the highway.',
+  },
+  {
+    x1: 0, z1: -80, x2: 170, z2: 60, from: 4,
+    name: 'DLF City (Phases 1–4)',
+    sub: 'the colony that built new Gurgaon',
+    story: "K.P. Singh's DLF assembled village land through the 1980s and sold plots to Delhi's middle class. These leafy phases are the template every later colony copied.",
+  },
+  {
+    x1: -120, z1: 80, x2: 0, z2: 240, from: 3,
+    name: 'HUDA Sectors',
+    sub: 'the government-planned city',
+    story: 'Numbered sectors laid out by the Haryana Urban Development Authority from 1977 — plots, parks and markets on a strict grid.',
+  },
+  {
+    x1: 120, z1: 20, x2: 280, z2: 240, from: 4,
+    name: 'Golf Course Road belt',
+    sub: 'the condo canyon',
+    story: "Gurgaon's most expensive addresses — golf-facing towers, private clubs and the Rapid Metro's southern arm.",
+  },
+  {
+    x1: -300, z1: -300, x2: 300, z2: 300, from: 0,
+    name: 'Farmland',
+    sub: 'wheat, mustard and millet',
+    story: 'For most of the century this was cropland worked by Jat, Ahir and Gujjar farming families from the surrounding villages. Every sector stands on someone’s old field.',
+  },
+]
+
+export function areaAt(x: number, z: number, era: EraIndex): Info {
+  for (const a of AREAS) {
+    if (era >= a.from && x >= a.x1 && x <= a.x2 && z >= a.z1 && z <= a.z2) {
+      return { name: a.name, sub: a.sub, story: a.story }
+    }
+  }
+  const last = AREAS[AREAS.length - 1]
+  return { name: last.name, sub: last.sub, story: last.story }
+}
+
+export function roadAt(x: number, z: number, era: EraIndex): Info | null {
+  for (const r of ROADS) {
+    const w = r.width[era]
+    if (!w) continue
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const [ax, az] = r.pts[i]
+      const [bx, bz] = r.pts[i + 1]
+      const dx = bx - ax
+      const dz = bz - az
+      const len = Math.hypot(dx, dz)
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (len * len)))
+      const d = Math.hypot(x - (ax + dx * t), z - (az + dz * t))
+      if (d < w / 2 + 2) {
+        return { name: r.name, sub: r.style[era] === 'd' ? 'unpaved in this era' : 'road', story: r.story }
+      }
+    }
+  }
+  // railway?
+  for (let i = 0; i < RAILWAY.length - 1; i++) {
+    const [ax, az] = RAILWAY[i]
+    const [bx, bz] = RAILWAY[i + 1]
+    const dx = bx - ax
+    const dz = bz - az
+    const len = Math.hypot(dx, dz)
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (len * len)))
+    const d = Math.hypot(x - (ax + dx * t), z - (az + dz * t))
+    if (d < 4) {
+      return {
+        name: 'Delhi–Rewari Railway',
+        sub: 'opened 1873',
+        story: 'The metre-gauge line that put Gurgaon on the map — grain out, cloth in, and the daily passenger to Delhi. The station made the old town.',
+      }
+    }
+  }
+  return null
+}
+
+/* ------------------------------------------------------------------ */
+/* pixel textures                                                      */
 /* ------------------------------------------------------------------ */
 
 type TexKind = 'glass' | 'concrete' | 'brick' | 'mud' | 'shop' | 'shed'
@@ -194,12 +353,10 @@ function facadeTexture(kind: TexKind, base: string, floors: number): FacadeTex {
         }
       }
     } else if (kind === 'mud') {
-      // one small dark window + door row at base
       ctx.fillStyle = '#4a3826'
       ctx.fillRect(6, y, 4, h)
       ctx.fillRect(22, y, 4, h)
     } else if (kind === 'shed') {
-      // corrugated verticals
       for (let x = 0; x < 32; x += 3) {
         ctx.fillStyle = x % 6 ? base : 'rgba(0,0,0,0.15)'
         ctx.fillRect(x, 0, 2, 32)
@@ -235,23 +392,16 @@ function facadeTexture(kind: TexKind, base: string, floors: number): FacadeTex {
 }
 
 /* ------------------------------------------------------------------ */
-/* ground painter — fields, roads and urban fabric per era             */
+/* ground painter                                                      */
 /* ------------------------------------------------------------------ */
 
 const GROUND_PX = 1024
-const WORLD = 600 // plate spans ±300
+const WORLD = 600
 
-function wx(x: number): number {
-  return ((x + 300) / WORLD) * GROUND_PX
-}
-function wz(z: number): number {
-  return ((z + 300) / WORLD) * GROUND_PX
-}
-function ww(u: number): number {
-  return (u / WORLD) * GROUND_PX
-}
+const wx = (x: number): number => ((x + 300) / WORLD) * GROUND_PX
+const wz = (z: number): number => ((z + 300) / WORLD) * GROUND_PX
+const ww = (u: number): number => (u / WORLD) * GROUND_PX
 
-/** deterministic pseudo-random so the fields don't reshuffle every era click */
 function mulberry(seed: number): () => number {
   let a = seed
   return () => {
@@ -264,11 +414,9 @@ function mulberry(seed: number): () => number {
 }
 
 function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
-  // base earth
   ctx.fillStyle = era < 3 ? '#b5a074' : era === 3 ? '#b0a47e' : '#a8a294'
   ctx.fillRect(0, 0, GROUND_PX, GROUND_PX)
 
-  // farmland patchwork — recedes with each era
   const rnd = mulberry(1947)
   const fieldGreens = ['#7f9f4f', '#93ac53', '#a9b163', '#87a24a', '#b8ab60', '#6f934a']
   for (let i = 0; i < 480; i++) {
@@ -277,19 +425,23 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
     const fw = 14 + rnd() * 26
     const fh = 12 + rnd() * 22
     const g = fieldGreens[Math.floor(rnd() * fieldGreens.length)]
-    // urbanisation frontier: fields survive only outside the developed zones
     const devel =
-      era >= 5
+      era >= 7
         ? true
-        : era === 4
-          ? fx > -160 && fz < 180 && fx < 260
-          : era === 3
-            ? fx > -60 && fz < 60 && fx < 200 && fz > -220
-            : false
+        : era === 6
+          ? !(fx < -180 && fz > 200)
+          : era === 5
+            ? fx > -180 && fz < 200 && fx < 270
+            : era === 4
+              ? fx > -160 && fz < 180 && fx < 260
+              : era === 3
+                ? fx > -60 && fz < 60 && fx < 200 && fz > -220
+                : false
     const nearTown = fx > -245 && fx < -135 && fz > 105 && fz < 215
     const inAravalli = fx > 180 && fz < -20
     if (inAravalli || nearTown) continue
-    if (devel && rnd() < (era === 5 ? 0.97 : era === 4 ? 0.85 : 0.6)) continue
+    const clearChance = era >= 7 ? 0.97 : era === 6 ? 0.93 : era === 5 ? 0.88 : era === 4 ? 0.85 : 0.6
+    if (devel && rnd() < clearChance) continue
     ctx.fillStyle = g
     ctx.fillRect(wx(fx), wz(fz), ww(fw), ww(fh))
     ctx.strokeStyle = 'rgba(90,70,40,0.5)'
@@ -297,7 +449,6 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
     ctx.strokeRect(wx(fx), wz(fz), ww(fw), ww(fh))
   }
 
-  // urban fabric blocks (plot grids) in developed zones
   const zonesPerEra: [number, number, number, number, number][][] = [
     [],
     [],
@@ -307,26 +458,29 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
       [-40, 120, 140, 160, 0.35],
     ],
     [
-      [-120, -240, 380, 400, 0.62],
-      [-260, 60, 200, 220, 0.4],
+      [-120, -240, 380, 400, 0.55],
+      [-260, 60, 200, 220, 0.35],
     ],
     [
-      [-300, -300, 600, 600, 0.8],
+      [-140, -260, 420, 440, 0.65],
+      [-270, 60, 220, 230, 0.42],
     ],
+    [[-300, -300, 600, 600, 0.72]],
+    [[-300, -300, 600, 600, 0.8]],
   ]
   const rnd2 = mulberry(1981)
   for (const [zx, zz, zw, zh, density] of zonesPerEra[era]) {
     for (let i = 0; i < (zw * zh) / 260; i++) {
       const fx = zx + rnd2() * zw
       const fz = zz + rnd2() * zh
-      if (fx > 180 && fz < -20) continue // Aravalli
+      if (fx > 180 && fz < -20) continue
       if (rnd2() > density) continue
       ctx.fillStyle = rnd2() < 0.5 ? '#b8b2a4' : '#c4bca8'
       ctx.fillRect(wx(fx), wz(fz), ww(9 + rnd2() * 14), ww(8 + rnd2() * 12))
     }
   }
 
-  // Aravalli scrub belt (east)
+  // Aravalli scrub
   ctx.fillStyle = '#8a8a5e'
   ctx.beginPath()
   ctx.moveTo(wx(180), wz(-300))
@@ -336,14 +490,12 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
   ctx.closePath()
   ctx.fill()
 
-  // parks in the modern eras
   if (era >= 4) {
     ctx.fillStyle = '#6da24f'
-    ctx.fillRect(wx(118), wz(45), ww(66), ww(52)) // golf course
-    ctx.fillRect(wx(-120), wz(92), ww(34), ww(40)) // leisure valley
+    ctx.fillRect(wx(118), wz(45), ww(66), ww(52))
+    ctx.fillRect(wx(-120), wz(92), ww(34), ww(40))
   }
 
-  // roads
   for (const road of ROADS) {
     const w = road.width[era]
     if (!w) continue
@@ -353,21 +505,14 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
-    road.pts.forEach(([x, z], i) => {
-      if (i === 0) ctx.moveTo(wx(x), wz(z))
-      else ctx.lineTo(wx(x), wz(z))
-    })
+    road.pts.forEach(([x, z], i) => (i === 0 ? ctx.moveTo(wx(x), wz(z)) : ctx.lineTo(wx(x), wz(z))))
     ctx.stroke()
-    // center line on paved roads
     if (style !== 'd') {
       ctx.strokeStyle = style === 'x' ? '#d8c14a' : 'rgba(240,240,220,0.7)'
       ctx.lineWidth = Math.max(1.5, ww(0.6))
       ctx.setLineDash([ww(4), ww(4)])
       ctx.beginPath()
-      road.pts.forEach(([x, z], i) => {
-        if (i === 0) ctx.moveTo(wx(x), wz(z))
-        else ctx.lineTo(wx(x), wz(z))
-      })
+      road.pts.forEach(([x, z], i) => (i === 0 ? ctx.moveTo(wx(x), wz(z)) : ctx.lineTo(wx(x), wz(z))))
       ctx.stroke()
       ctx.setLineDash([])
     }
@@ -377,19 +522,13 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
   ctx.strokeStyle = '#6e6152'
   ctx.lineWidth = ww(3.2)
   ctx.beginPath()
-  RAILWAY.forEach(([x, z], i) => {
-    if (i === 0) ctx.moveTo(wx(x), wz(z))
-    else ctx.lineTo(wx(x), wz(z))
-  })
+  RAILWAY.forEach(([x, z], i) => (i === 0 ? ctx.moveTo(wx(x), wz(z)) : ctx.lineTo(wx(x), wz(z))))
   ctx.stroke()
   ctx.strokeStyle = '#3d372e'
   ctx.lineWidth = Math.max(1.5, ww(0.5))
   ctx.setLineDash([ww(1.2), ww(1.6)])
   ctx.beginPath()
-  RAILWAY.forEach(([x, z], i) => {
-    if (i === 0) ctx.moveTo(wx(x), wz(z))
-    else ctx.lineTo(wx(x), wz(z))
-  })
+  RAILWAY.forEach(([x, z], i) => (i === 0 ? ctx.moveTo(wx(x), wz(z)) : ctx.lineTo(wx(x), wz(z))))
   ctx.stroke()
   ctx.setLineDash([])
 }
@@ -400,31 +539,72 @@ function paintGround(ctx: CanvasRenderingContext2D, era: EraIndex): void {
 
 interface EraObject {
   obj: THREE.Object3D
-  from: number // first era index present
-  to: number // last era index present
-  anim: number // current 0..1 grown state
+  from: number
+  to: number
+  anim: number
+}
+
+interface LabelRec {
+  sprite: THREE.Sprite
+  from: number
+  to: number
 }
 
 export interface World {
   setEra: (era: EraIndex, instant?: boolean) => void
   setNight: (t: number) => void
+  setLabels: (on: boolean) => void
   update: (dt: number) => void
   era: () => EraIndex
+  ground: THREE.Mesh
 }
 
 export function buildWorld(scene: THREE.Scene): World {
   const eraObjects: EraObject[] = []
+  const labels: LabelRec[] = []
   const nightMats: { mat: THREE.MeshStandardMaterial; night: number }[] = []
-  let currentEra: EraIndex = 5
+  let currentEra: EraIndex = LAST
+  let labelsOn = true
 
-  function mat(color: number, rough = 0.85): THREE.MeshStandardMaterial {
-    return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.02 })
-  }
+  const mat = (color: number, rough = 0.85): THREE.MeshStandardMaterial =>
+    new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.02 })
 
-  function track(obj: THREE.Object3D, from: number, to: number): void {
+  function track(obj: THREE.Object3D, from: number, to = LAST): void {
     obj.visible = false
     eraObjects.push({ obj, from, to, anim: 0 })
     scene.add(obj)
+  }
+
+  function setInfo(obj: THREE.Object3D, info: Info): void {
+    obj.userData.info = info
+  }
+
+  function label(text: string, x: number, y: number, z: number, from: number, to = LAST): void {
+    const c = document.createElement('canvas')
+    c.width = 512
+    c.height = 84
+    const ctx = c.getContext('2d')!
+    ctx.font = 'bold 44px Avenir Next, Trebuchet MS, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    const w = ctx.measureText(text).width + 44
+    ctx.fillStyle = 'rgba(10,16,30,0.72)'
+    ctx.beginPath()
+    ctx.roundRect((512 - w) / 2, 8, w, 68, 16)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(232,184,74,0.8)'
+    ctx.lineWidth = 3
+    ctx.stroke()
+    ctx.fillStyle = '#f5efe2'
+    ctx.fillText(text, 256, 44)
+    const tex = new THREE.CanvasTexture(c)
+    tex.colorSpace = THREE.SRGBColorSpace
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true, transparent: true }))
+    sprite.position.set(x, y, z)
+    sprite.scale.set(40, 6.6, 1)
+    sprite.renderOrder = 5
+    scene.add(sprite)
+    labels.push({ sprite, from, to })
   }
 
   /* ---------- ground ---------- */
@@ -443,7 +623,21 @@ export function buildWorld(scene: THREE.Scene): World {
   ground.receiveShadow = true
   scene.add(ground)
 
-  /* ---------- voxel building helper ---------- */
+  /* ---------- voxel building helpers ---------- */
+  function facadeMat(kind: TexKind, base: string, floors: number): THREE.MeshStandardMaterial {
+    const t = facadeTexture(kind, base, floors)
+    const m = new THREE.MeshStandardMaterial({
+      map: t.map,
+      emissive: 0xffffff,
+      emissiveMap: t.emissiveMap,
+      emissiveIntensity: 0,
+      roughness: kind === 'glass' ? 0.3 : 0.85,
+      metalness: kind === 'glass' ? 0.2 : 0.02,
+    })
+    nightMats.push({ mat: m, night: 0.85 })
+    return m
+  }
+
   function bld(
     x: number,
     z: number,
@@ -454,21 +648,13 @@ export function buildWorld(scene: THREE.Scene): World {
     base: string,
     roof: number,
     from: number,
-    to = 5,
+    to = LAST,
     rotY = 0,
+    info?: Info,
   ): THREE.Group {
     const g = new THREE.Group()
     const floors = Math.max(1, Math.round(h / 3.2))
-    const t = facadeTexture(kind, base, floors)
-    const side = new THREE.MeshStandardMaterial({
-      map: t.map,
-      emissive: 0xffffff,
-      emissiveMap: t.emissiveMap,
-      emissiveIntensity: 0,
-      roughness: kind === 'glass' ? 0.3 : 0.85,
-      metalness: kind === 'glass' ? 0.2 : 0.02,
-    })
-    nightMats.push({ mat: side, night: 0.85 })
+    const side = facadeMat(kind, base, floors)
     const top = mat(roof)
     const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, top, top, side, side])
     box.position.y = h / 2
@@ -477,11 +663,11 @@ export function buildWorld(scene: THREE.Scene): World {
     g.add(box)
     g.position.set(x, 0, z)
     g.rotation.y = rotY
+    if (info) setInfo(g, info)
     track(g, from, to)
     return g
   }
 
-  /** stepped voxel tower (setbacks) */
   function tower(
     x: number,
     z: number,
@@ -491,19 +677,12 @@ export function buildWorld(scene: THREE.Scene): World {
     base: string,
     roof: number,
     from: number,
-    to = 5,
+    to = LAST,
+    info?: Info,
   ): void {
-    const g = bld(x, z, w, h * 0.62, w, kind, base, roof, from, to)
+    const g = bld(x, z, w, h * 0.62, w, kind, base, roof, from, to, 0, info)
     const floors = Math.max(1, Math.round(h / 3.2))
-    const t = facadeTexture(kind, base, floors)
-    const side = new THREE.MeshStandardMaterial({
-      map: t.map,
-      emissive: 0xffffff,
-      emissiveMap: t.emissiveMap,
-      emissiveIntensity: 0,
-      roughness: kind === 'glass' ? 0.3 : 0.85,
-    })
-    nightMats.push({ mat: side, night: 0.85 })
+    const side = facadeMat(kind, base, floors)
     const upper = new THREE.Mesh(
       new THREE.BoxGeometry(w * 0.7, h * 0.38, w * 0.7),
       [side, side, mat(roof), mat(roof), side, side],
@@ -513,11 +692,53 @@ export function buildWorld(scene: THREE.Scene): World {
     g.add(upper)
   }
 
-  /* ---------- OLD GURGAON (south-west) ---------- */
+  const genericInfo: Record<string, Info> = {
+    townHouse: {
+      name: 'Old-town home',
+      sub: 'Sadar Bazaar mohalla',
+      story: 'A courtyard house of the old town — shop or workshop at street level, family rooms above. Many stand on foundations older than the railway.',
+    },
+    village: {
+      name: 'Village house',
+      sub: 'mud brick and thatch',
+      story: 'A farming household of one of Gurgaon’s villages — cattle in the courtyard, grain on the roof. The urban villages (Nathupur, Sikanderpur, Chakkarpur) still sit inside the modern city.',
+    },
+    sector: {
+      name: 'HUDA plot house',
+      sub: 'sector housing, 1980s+',
+      story: 'A self-built family house on a HUDA plot — the classic Gurgaon middle-class home of the 80s and 90s.',
+    },
+    dlf: {
+      name: 'DLF City residence',
+      sub: 'private colony housing',
+      story: 'A plotted house in DLF City — Delhi families bought these in the 90s when the address was still a gamble beside a highway.',
+    },
+    factory: {
+      name: 'Udyog Vihar unit',
+      sub: 'export factory',
+      story: 'A garment-export or electronics shed — the industry that paid for Gurgaon’s first boom.',
+    },
+    office: {
+      name: 'Office block',
+      sub: 'corporate Gurgaon',
+      story: 'One of hundreds of glass-and-concrete blocks that fill the sectors — BPOs in the 2000s, startups and GCCs today.',
+    },
+    condo: {
+      name: 'High-rise condominium',
+      sub: 'vertical Gurgaon',
+      story: 'A gated tower with its own power, water and guards — the city privatised its services and moved into the sky.',
+    },
+    infill: {
+      name: 'Urban infill',
+      sub: 'builder floors',
+      story: 'Four-storey builder floors — the default fabric of modern Gurgaon, replacing plot houses one at a time.',
+    },
+  }
+
+  /* ---------- OLD GURGAON ---------- */
   {
     const rnd = mulberry(1920)
-    // Sadar Bazaar mud/brick town — grows each era
-    const townSpots: [number, number, number][] = [] // x,z,firstEra
+    const townSpots: [number, number, number][] = []
     for (let i = 0; i < 46; i++) townSpots.push([-215 + rnd() * 66, 128 + rnd() * 60, 0])
     for (let i = 0; i < 18; i++) townSpots.push([-235 + rnd() * 100, 116 + rnd() * 86, 1])
     for (let i = 0; i < 20; i++) townSpots.push([-245 + rnd() * 116, 108 + rnd() * 100, 2])
@@ -527,20 +748,21 @@ export function buildWorld(scene: THREE.Scene): World {
       const kinds: TexKind[] = ['mud', 'mud', 'brick']
       const kind = kinds[Math.floor(rnd() * (from === 0 ? 2 : 3))]
       const base = kind === 'mud' ? '#b08d5f' : '#a3563a'
-      bld(hx, hz, w, h, w * (0.8 + rnd() * 0.5), kind, base, kind === 'mud' ? 0x8a6c48 : 0x7c4030, from, 5, rnd() * 0.8 - 0.4)
+      bld(hx, hz, w, h, w * (0.8 + rnd() * 0.5), kind, base, kind === 'mud' ? 0x8a6c48 : 0x7c4030, from, LAST, rnd() * 0.8 - 0.4, genericInfo.townHouse)
     }
-    // upgrade: by 2000 the old town gets concrete mid-rises sprinkled in
     for (let i = 0; i < 14; i++) {
-      bld(-238 + rnd() * 104, 112 + rnd() * 92, 6, 8 + rnd() * 8, 6, 'concrete', '#c9c2b2', 0x9a938a, 4)
+      bld(-238 + rnd() * 104, 112 + rnd() * 92, 6, 8 + rnd() * 8, 6, 'concrete', '#c9c2b2', 0x9a938a, 4, LAST, 0, genericInfo.infill)
     }
-    // railway station (red brick, all eras; bigger from 1960)
-    bld(-196, 173, 16, 6, 7, 'brick', '#933f2c', 0x6e2f22, 0)
+    bld(-196, 173, 16, 6, 7, 'brick', '#933f2c', 0x6e2f22, 0, LAST, 0, {
+      name: 'Gurgaon Railway Station',
+      sub: 'Delhi–Rewari line, 1873',
+      story: 'The station that made the town. Grain and cotton left from here; officials, traders and soldiers arrived. Steam until the 1960s, diesel after — and it still runs.',
+    })
     bld(-206, 173, 5, 9, 6, 'brick', '#933f2c', 0x6e2f22, 2)
-    // platform
     const plat = new THREE.Mesh(new THREE.BoxGeometry(26, 1.2, 4), mat(0xb8ad98))
     plat.position.set(-196, 0.6, 166.5)
-    track(plat, 0, 5)
-    // mosque + temple + church in the old town
+    track(plat, 0)
+
     {
       const mosque = new THREE.Group()
       const hall = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 6), mat(0xe8e0cc))
@@ -552,9 +774,13 @@ export function buildWorld(scene: THREE.Scene): World {
       const minar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 10, 1.4), mat(0xe8e0cc))
       minar.position.set(5.4, 5, 0)
       mosque.add(minar)
-      mosque.position.set(-172, 150, 0)
       mosque.position.set(-172, 0, 150)
-      track(mosque, 0, 5)
+      setInfo(mosque, {
+        name: 'Jama Masjid, Sadar Bazaar',
+        sub: 'old-town mosque',
+        story: 'The Friday mosque of the old town, serving traders of the bazaar for over a century.',
+      })
+      track(mosque, 0)
 
       const temple = new THREE.Group()
       const cell = new THREE.Mesh(new THREE.BoxGeometry(5, 4, 5), mat(0xd8c294))
@@ -565,7 +791,12 @@ export function buildWorld(scene: THREE.Scene): World {
       shikhara.rotation.y = Math.PI / 4
       temple.add(shikhara)
       temple.position.set(-208, 0, 141)
-      track(temple, 0, 5)
+      setInfo(temple, {
+        name: 'Shiv Mandir',
+        sub: 'bazaar temple',
+        story: 'The old town’s temple — Gurgaon takes its name from Guru Dronacharya of the Mahabharata, said to have been granted this village (Guru-gram).',
+      })
+      track(temple, 0)
 
       const church = new THREE.Group()
       const nave = new THREE.Mesh(new THREE.BoxGeometry(5, 4.5, 9), mat(0xd9d2c0))
@@ -578,13 +809,20 @@ export function buildWorld(scene: THREE.Scene): World {
       spire.position.set(0, 9.5, 5)
       church.add(spire)
       church.position.set(-231, 0, 178)
-      track(church, 0, 5)
+      setInfo(church, {
+        name: 'Civil Lines Church',
+        sub: 'colonial era',
+        story: 'A small station church for the district officials of the Raj — Sunday services for the civil lines.',
+      })
+      track(church, 0)
     }
-    // civil lines bungalows (1940+)
     for (let i = 0; i < 6; i++) {
-      bld(-252 + i * 9, 96 - (i % 2) * 6, 6, 3.5, 5, 'brick', '#e0d6bc', 0xa04c34, 1)
+      bld(-252 + i * 9, 96 - (i % 2) * 6, 6, 3.5, 5, 'brick', '#e0d6bc', 0xa04c34, 1, LAST, 0, {
+        name: 'Civil Lines bungalow',
+        sub: 'officers’ quarters, 1930s',
+        story: 'Whitewashed bungalows with deep verandahs for the deputy commissioner’s staff — the government quarter of the district town.',
+      })
     }
-    // water tower (1960+)
     {
       const wt = new THREE.Group()
       const legs = new THREE.Mesh(new THREE.BoxGeometry(2.2, 10, 2.2), mat(0x9aa0a8))
@@ -594,28 +832,40 @@ export function buildWorld(scene: THREE.Scene): World {
       tank.position.y = 11.5
       wt.add(tank)
       wt.position.set(-152, 0, 120)
-      track(wt, 2, 5)
+      setInfo(wt, {
+        name: 'Municipal water tower',
+        sub: '1960s',
+        story: 'Piped water reached the town in the 60s — the tower was its tallest structure for two decades.',
+      })
+      track(wt, 2)
     }
-    // grain market sheds (1960+)
     for (let i = 0; i < 3; i++) {
-      bld(-148 + i * 10, 168, 8, 4.5, 12, 'shed', '#b8bcc2', 0x8e959c, 2)
+      bld(-148 + i * 10, 168, 8, 4.5, 12, 'shed', '#b8bcc2', 0x8e959c, 2, LAST, 0, {
+        name: 'Anaj Mandi',
+        sub: 'grain market, 1960s',
+        story: 'The wholesale grain market — bullock carts, then tractors, queued here at every harvest.',
+      })
     }
   }
 
-  /* ---------- villages (pre-urban, absorbed later) ---------- */
+  /* ---------- villages ---------- */
   {
     const rnd = mulberry(7)
     const villages: [number, number, string, number][] = [
-      // x, z, name, last era standing as a village cluster
-      [-60, 182, 'Jharsa', 5],
-      [100, -44, 'Sikanderpur', 3],
-      [58, -182, 'Nathupur', 3],
-      [28, 62, 'Chakkarpur', 3],
-      [150, 122, 'Wazirabad', 4],
-      [-30, -120, 'Dundahera', 3],
+      [-60, 182, 'Jharsa', LAST],
+      [100, -44, 'Sikanderpur', 4],
+      [58, -182, 'Nathupur', 4],
+      [28, 62, 'Chakkarpur', 4],
+      [150, 122, 'Wazirabad', 5],
+      [-30, -120, 'Dundahera', 4],
     ]
-    for (const [vx, vz, , lastEra] of villages) {
+    for (const [vx, vz, name, lastEra] of villages) {
       const n = 7 + Math.floor(rnd() * 4)
+      const vInfo: Info = {
+        name: `${name} village`,
+        sub: 'farming settlement',
+        story: `${name} — one of the villages whose fields became the new city. ${lastEra === LAST ? 'Its core survives inside modern Gurgaon.' : 'By the 2000s its lands were sold and built over; the village core became an "urban village" of tall narrow rentals.'}`,
+      }
       for (let i = 0; i < n; i++) {
         const a = rnd() * Math.PI * 2
         const r = 4 + rnd() * 10
@@ -631,16 +881,26 @@ export function buildWorld(scene: THREE.Scene): World {
           0,
           lastEra,
           rnd() * 1.2,
+          vInfo,
         )
       }
-      // village well
       const well = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 1.2, 8), mat(0x8f8577))
       well.position.set(vx + 14, 0.6, vz + 2)
       track(well, 0, lastEra)
+      // urban-village tall rentals replace the huts
+      if (lastEra < LAST) {
+        for (let i = 0; i < 5; i++) {
+          bld(vx - 8 + i * 5, vz + (i % 2) * 6 - 3, 4, 9 + rnd() * 4, 4.5, 'concrete', '#cfc0a8', 0x9a8c74, lastEra + 1, LAST, 0, {
+            name: 'Urban village rental',
+            sub: 'built on village land',
+            story: 'When the fields sold, village families built tall narrow rental blocks on their house plots — home to the drivers, guards and cooks who run the new city.',
+          })
+        }
+      }
     }
   }
 
-  /* ---------- Aravalli ridge (all eras) ---------- */
+  /* ---------- Aravalli ---------- */
   {
     const rnd = mulberry(3)
     for (let i = 0; i < 16; i++) {
@@ -652,11 +912,16 @@ export function buildWorld(scene: THREE.Scene): World {
       hill.position.set(hx, hillH / 2 - 1, hz)
       hill.rotation.y = rnd() * Math.PI
       hill.castShadow = true
-      scene.add(hill) // permanent
+      setInfo(hill, {
+        name: 'Aravalli Ridge',
+        sub: 'ancient hills',
+        story: 'Quartzite spurs of one of the world’s oldest ranges — mined for stone in the 80s, partly restored as the Aravalli Biodiversity Park since 2010.',
+      })
+      scene.add(hill)
     }
   }
 
-  /* ---------- trees (instanced, era-band via three meshes) ---------- */
+  /* ---------- trees ---------- */
   {
     const rnd = mulberry(11)
     const trunkGeo = new THREE.BoxGeometry(0.7, 2.4, 0.7)
@@ -680,122 +945,112 @@ export function buildWorld(scene: THREE.Scene): World {
       track(trunks, from, to)
       track(crowns, from, to)
     }
-    // countryside trees, thinning as the city grows
-    treeBand(150, 0, 3, () => [rnd() * 460 - 280, rnd() * 500 - 250])
-    treeBand(60, 4, 5, () => {
-      // survivors cluster in parks/aravalli
+    treeBand(150, 0, 4, () => [rnd() * 460 - 280, rnd() * 500 - 250])
+    treeBand(60, 5, LAST, () => {
       const inParks = rnd() < 0.5
       return inParks ? [120 + rnd() * 60, 45 + rnd() * 50] : [200 + rnd() * 90, -260 + rnd() * 230]
     })
   }
 
-  /* ---------- 1980: Maruti plant + first sectors ---------- */
+  /* ---------- 1980 ---------- */
   {
+    const marutiInfo: Info = {
+      name: 'Maruti Udyog plant',
+      sub: 'opened 1983',
+      story: 'The factory that changed everything — the Maruti 800 rolled out from here and Gurgaon became India’s car capital. Suppliers, jobs and migrants followed.',
+    }
     for (let i = 0; i < 3; i++) {
-      bld(46 + i * 15, -108, 13, 7, 26, 'shed', '#c8ccd2', 0x9aa2ab, 3)
+      bld(46 + i * 15, -108, 13, 7, 26, 'shed', '#c8ccd2', 0x9aa2ab, 3, LAST, 0, marutiInfo)
     }
     const stack = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.8, 18, 8), mat(0xb04a38))
     stack.position.set(24, 9, -96)
-    track(stack, 3, 5)
-    // HUDA sector housing rows (south + center)
+    setInfo(stack, marutiInfo)
+    track(stack, 3)
     const rnd = mulberry(1977)
     for (let i = 0; i < 40; i++) {
-      const sx = -50 + rnd() * 120
-      const sz = 130 + rnd() * 100
-      bld(sx, sz, 5, 4 + rnd() * 3, 5, 'concrete', '#d8cfba', 0xa89a80, 3)
+      bld(-50 + rnd() * 120, 130 + rnd() * 100, 5, 4 + rnd() * 3, 5, 'concrete', '#d8cfba', 0xa89a80, 3, LAST, 0, genericInfo.sector)
     }
     for (let i = 0; i < 24; i++) {
-      bld(-10 + rnd() * 100, -20 + rnd() * 90, 5, 4 + rnd() * 4, 5, 'concrete', '#cfc6b4', 0xa89a80, 3)
+      bld(-10 + rnd() * 100, -20 + rnd() * 90, 5, 4 + rnd() * 4, 5, 'concrete', '#cfc6b4', 0xa89a80, 3, LAST, 0, genericInfo.sector)
     }
   }
 
-  /* ---------- 2000: DLF City, Udyog Vihar, first CyberCity, malls ---------- */
+  /* ---------- 2000 ---------- */
   {
     const rnd = mulberry(2000)
-    // DLF phases NE
     for (let i = 0; i < 46; i++) {
-      bld(20 + rnd() * 150, -60 + rnd() * 150, 5.5, 5 + rnd() * 5, 5.5, 'concrete', '#e0d8c4', 0xb2a488, 4)
+      bld(20 + rnd() * 150, -60 + rnd() * 150, 5.5, 5 + rnd() * 5, 5.5, 'concrete', '#e0d8c4', 0xb2a488, 4, LAST, 0, genericInfo.dlf)
     }
-    // Udyog Vihar factory sheds along the highway (north-west of NH)
     for (let i = 0; i < 10; i++) {
-      bld(-140 + rnd() * 90, -220 + rnd() * 80, 10, 6 + rnd() * 3, 8, 'shed', '#c2c8ce', 0x939ba4, 4)
+      bld(-140 + rnd() * 90, -220 + rnd() * 80, 10, 6 + rnd() * 3, 8, 'shed', '#c2c8ce', 0x939ba4, 4, LAST, 0, genericInfo.factory)
     }
-    // Signature Towers at IFFCO
-    tower(-116, 92, 10, 26, 'concrete', '#e4e0d2', 0xb03a30, 4)
-    tower(-102, 100, 10, 26, 'concrete', '#e4e0d2', 0xb03a30, 4)
-    // early CyberCity blocks
-    tower(30, -180, 14, 22, 'glass', '#5f88a8', 0x3d5a72, 4, 4)
-    tower(55, -170, 12, 18, 'glass', '#6f94b2', 0x3d5a72, 4, 4)
-    // MG Road malls
-    bld(30, -6, 16, 12, 13, 'shop', '#c8a06a', 0x8a6a42, 4)
-    bld(58, -18, 15, 13, 13, 'shop', '#b06848', 0x7c4630, 4)
-    bld(84, -30, 14, 11, 12, 'shop', '#7c98a6', 0x54707e, 4)
+    const sigInfo: Info = {
+      name: 'Signature Towers',
+      sub: 'completed 1995',
+      story: 'The red-topped twins at IFFCO Chowk — new Gurgaon’s first landmark offices, and for years the proof the city was serious.',
+    }
+    tower(-116, 92, 10, 26, 'concrete', '#e4e0d2', 0xb03a30, 4, LAST, sigInfo)
+    tower(-102, 100, 10, 26, 'concrete', '#e4e0d2', 0xb03a30, 4, LAST, sigInfo)
+    const cyberInfo: Info = {
+      name: 'DLF CyberCity tower',
+      sub: 'built 1999–2015',
+      story: 'Part of the CyberCity office district — floors of code, calls and finance where Nathupur’s mustard fields stood.',
+    }
+    tower(30, -180, 14, 22, 'glass', '#5f88a8', 0x3d5a72, 4, LAST, cyberInfo)
+    tower(55, -170, 12, 18, 'glass', '#6f94b2', 0x3d5a72, 4, LAST, cyberInfo)
+    const mallInfo = (name: string, year: string): Info => ({
+      name,
+      sub: `opened ${year}`,
+      story: 'One of the MG Road malls that taught north India to hang out in air-conditioning — multiplex on top, food court in the middle, arcade below.',
+    })
+    bld(30, -6, 16, 12, 13, 'shop', '#c8a06a', 0x8a6a42, 4, LAST, 0, mallInfo('Sahara Mall', '2001'))
+    bld(58, -18, 15, 13, 13, 'shop', '#b06848', 0x7c4630, 4, LAST, 0, mallInfo('MGF Metropolitan', '2001'))
+    bld(84, -30, 14, 11, 12, 'shop', '#7c98a6', 0x54707e, 5, LAST, 0, mallInfo('DT City Centre', '2007'))
   }
 
-  /* ---------- NOW: full skyline ---------- */
+  /* ---------- 2010 ---------- */
   {
-    const rnd = mulberry(2025)
-    // CyberCity glass cluster
-    const cyber: [number, number, number, number][] = [
-      [26, -184, 15, 40],
-      [48, -192, 13, 52],
-      [70, -178, 14, 46],
-      [86, -160, 12, 38],
-      [40, -158, 13, 44],
-      [62, -145, 12, 36],
-      [18, -160, 11, 30],
-    ]
-    for (const [x, z, w, h] of cyber) {
-      tower(x, z, w, h, 'glass', rnd() < 0.5 ? '#4f7f9f' : '#5f93af', 0x2e4a5e, 5)
+    const rnd = mulberry(2010)
+    const cyberInfo: Info = {
+      name: 'DLF CyberCity tower',
+      sub: 'built 1999–2015',
+      story: 'Part of the CyberCity office district — floors of code, calls and finance where Nathupur’s mustard fields stood.',
     }
-    // Cyber Hub low strip
-    bld(90, -205, 22, 5, 8, 'shop', '#c04030', 0x7c2820, 5)
-    // gateway-ish curved tower suggestion
-    tower(8, -186, 12, 34, 'glass', '#74a8c4', 0x2e4a5e, 5)
-    // Golf Course Road condos
-    for (let i = 0; i < 8; i++) {
-      tower(150 + rnd() * 90, 15 + rnd() * 110, 9 + rnd() * 4, 26 + rnd() * 22, 'concrete', '#e6ddc8', 0x9a8c74, 5)
+    tower(70, -178, 14, 34, 'glass', '#4f7f9f', 0x2e4a5e, 5, LAST, cyberInfo)
+    tower(40, -158, 13, 30, 'glass', '#5f93af', 0x2e4a5e, 5, LAST, cyberInfo)
+    tower(8, -186, 12, 28, 'glass', '#74a8c4', 0x2e4a5e, 5, LAST, cyberInfo)
+    // Kingdom of Dreams (2010)
+    const kod = new THREE.Group()
+    const hall = new THREE.Mesh(new THREE.BoxGeometry(18, 7, 12), mat(0xf0e8d4))
+    hall.position.y = 3.5
+    kod.add(hall)
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(5.5, 12, 8), mat(0x3a6cb0, 0.5))
+    dome.position.y = 9
+    dome.scale.y = 0.7
+    kod.add(dome)
+    kod.position.set(-134, 0, 172)
+    setInfo(kod, {
+      name: 'Kingdom of Dreams',
+      sub: 'opened 2010',
+      story: 'India’s Bollywood-style live-entertainment palace — home of the Zangoora musical and the Culture Gully food street.',
+    })
+    track(kod, 5)
+    // Ambience Mall (2007)
+    bld(122, -268, 26, 10, 12, 'shop', '#e0d6c0', 0x9c8e76, 5, LAST, 0, {
+      name: 'Ambience Mall',
+      sub: 'opened 2007',
+      story: 'The “1-km mall” on NH-48 at the Delhi border — a kilometre of shopfront on every floor.',
+    })
+    // metro
+    const metroInfo: Info = {
+      name: 'Yellow Line Metro',
+      sub: 'reached Gurgaon 2010',
+      story: 'Delhi Metro crossed the border in 2010 — MG Road, IFFCO Chowk and HUDA City Centre stations rewired how the city commutes.',
     }
-    // sector high-rises spread across the plate
-    for (let i = 0; i < 26; i++) {
-      const hx = -220 + rnd() * 420
-      const hz = -60 + rnd() * 320
-      if (hx > 150 && hz < 130) continue
-      tower(hx, hz, 8 + rnd() * 4, 18 + rnd() * 18, rnd() < 0.3 ? 'glass' : 'concrete', rnd() < 0.3 ? '#5f93af' : '#ddd2ba', 0x9a8c74, 5)
-    }
-    // dense low urban infill
-    for (let i = 0; i < 90; i++) {
-      const hx = -240 + rnd() * 460
-      const hz = -160 + rnd() * 420
-      if (hx > 170 && hz < 0) continue
-      bld(hx, hz, 4.5 + rnd() * 3, 5 + rnd() * 7, 4.5 + rnd() * 3, 'concrete', rnd() < 0.5 ? '#d8cdb6' : '#c9c2b4', 0xa39882, 5)
-    }
-    // Kingdom of Dreams
-    {
-      const kod = new THREE.Group()
-      const hall = new THREE.Mesh(new THREE.BoxGeometry(18, 7, 12), mat(0xf0e8d4))
-      hall.position.y = 3.5
-      kod.add(hall)
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(5.5, 12, 8), mat(0x3a6cb0, 0.5))
-      dome.position.y = 9
-      dome.scale.y = 0.7
-      kod.add(dome)
-      kod.position.set(-134, 0, 172)
-      track(kod, 5, 5)
-    }
-    // Ambience mall NE on the highway
-    bld(122, -268, 26, 10, 12, 'shop', '#e0d6c0', 0x9c8e76, 5)
-    // metro line (yellow) along MG road + HUDA corridor
-    const metroPts: [number, number][] = [
-      [190, -117],
-      [103, -36],
-      [-93, 65],
-      [-90, 210],
-    ]
     const metroGroup = new THREE.Group()
-    for (let i = 0; i < metroPts.length - 1; i++) {
-      const [ax, az] = metroPts[i]
-      const [bx, bz] = metroPts[i + 1]
+    for (let i = 0; i < METRO_PTS.length - 1; i++) {
+      const [ax, az] = METRO_PTS[i]
+      const [bx, bz] = METRO_PTS[i + 1]
       const len = Math.hypot(bx - ax, bz - az)
       const deck = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1, len + 2), mat(0xb5aea0))
       deck.position.set((ax + bx) / 2, 9, (az + bz) / 2)
@@ -810,7 +1065,6 @@ export function buildWorld(scene: THREE.Scene): World {
         metroGroup.add(pil)
       }
     }
-    // stations
     for (const [sx, sz] of [
       [103, -36],
       [-3, 14],
@@ -821,16 +1075,143 @@ export function buildWorld(scene: THREE.Scene): World {
       st.position.set(sx, 10.5, sz)
       metroGroup.add(st)
     }
-    track(metroGroup, 5, 5)
+    setInfo(metroGroup, metroInfo)
+    track(metroGroup, 5)
+    // early golf condos
+    for (let i = 0; i < 3; i++) {
+      tower(150 + rnd() * 60, 20 + rnd() * 70, 9 + rnd() * 3, 24 + rnd() * 14, 'concrete', '#e6ddc8', 0x9a8c74, 5, LAST, genericInfo.condo)
+    }
+    for (let i = 0; i < 30; i++) {
+      const hx = -240 + rnd() * 460
+      const hz = -160 + rnd() * 420
+      if (hx > 170 && hz < 0) continue
+      bld(hx, hz, 4.5 + rnd() * 3, 5 + rnd() * 6, 4.5 + rnd() * 3, 'concrete', rnd() < 0.5 ? '#d8cdb6' : '#c9c2b4', 0xa39882, 5, LAST, 0, genericInfo.infill)
+    }
   }
+
+  /* ---------- 2020 ---------- */
+  {
+    const rnd = mulberry(2020)
+    const cyberInfo: Info = {
+      name: 'DLF CyberCity tower',
+      sub: 'built 1999–2015',
+      story: 'Part of the CyberCity office district — floors of code, calls and finance where Nathupur’s mustard fields stood.',
+    }
+    const cyber: [number, number, number, number][] = [
+      [26, -196, 15, 44],
+      [48, -192, 13, 52],
+      [86, -160, 12, 38],
+      [62, -145, 12, 36],
+      [18, -160, 11, 30],
+    ]
+    for (const [x, z, w, h] of cyber) {
+      tower(x, z, w, h, 'glass', rnd() < 0.5 ? '#4f7f9f' : '#5f93af', 0x2e4a5e, 6, LAST, cyberInfo)
+    }
+    bld(90, -205, 22, 5, 8, 'shop', '#c04030', 0x7c2820, 6, LAST, 0, {
+      name: 'Cyber Hub',
+      sub: 'opened 2013',
+      story: 'The food-and-nightlife strip at CyberCity’s feet — 60+ restaurants where all of corporate Gurgaon decompresses.',
+    })
+    // rapid metro loop
+    const rapidInfo: Info = {
+      name: 'Rapid Metro',
+      sub: 'opened 2013',
+      story: 'India’s first fully private metro — a small loop around CyberCity, later extended down Golf Course Road.',
+    }
+    const rg = new THREE.Group()
+    for (let i = 0; i < RAPID_PTS.length - 1; i++) {
+      const [ax, az] = RAPID_PTS[i]
+      const [bx, bz] = RAPID_PTS[i + 1]
+      const len = Math.hypot(bx - ax, bz - az)
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.9, len + 2), mat(0xb5aea0))
+      deck.position.set((ax + bx) / 2, 7, (az + bz) / 2)
+      deck.rotation.y = Math.atan2(bx - ax, bz - az)
+      rg.add(deck)
+      const n = Math.floor(len / 16)
+      for (let k = 1; k <= n; k++) {
+        const t = k / (n + 1)
+        const pil = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 1), mat(0x9a948a))
+        pil.position.set(ax + (bx - ax) * t, 3.5, az + (bz - az) * t)
+        rg.add(pil)
+      }
+    }
+    setInfo(rg, rapidInfo)
+    track(rg, 6)
+    for (let i = 0; i < 3; i++) {
+      tower(170 + rnd() * 70, 40 + rnd() * 80, 9 + rnd() * 4, 28 + rnd() * 18, 'concrete', '#ddd2ba', 0x9a8c74, 6, LAST, genericInfo.condo)
+    }
+    for (let i = 0; i < 14; i++) {
+      const hx = -220 + rnd() * 420
+      const hz = -60 + rnd() * 320
+      if (hx > 150 && hz < 130) continue
+      tower(hx, hz, 8 + rnd() * 4, 18 + rnd() * 16, rnd() < 0.3 ? 'glass' : 'concrete', rnd() < 0.3 ? '#5f93af' : '#ddd2ba', 0x9a8c74, 6, LAST, genericInfo.condo)
+    }
+    for (let i = 0; i < 45; i++) {
+      const hx = -240 + rnd() * 460
+      const hz = -160 + rnd() * 420
+      if (hx > 170 && hz < 0) continue
+      bld(hx, hz, 4.5 + rnd() * 3, 5 + rnd() * 7, 4.5 + rnd() * 3, 'concrete', rnd() < 0.5 ? '#d8cdb6' : '#c9c2b4', 0xa39882, 6, LAST, 0, genericInfo.infill)
+    }
+  }
+
+  /* ---------- NOW ---------- */
+  {
+    const rnd = mulberry(2025)
+    for (let i = 0; i < 12; i++) {
+      const hx = -220 + rnd() * 420
+      const hz = -60 + rnd() * 320
+      if (hx > 150 && hz < 130) continue
+      tower(hx, hz, 8 + rnd() * 4, 22 + rnd() * 20, rnd() < 0.35 ? 'glass' : 'concrete', rnd() < 0.35 ? '#5f93af' : '#e2d8c0', 0x9a8c74, 7, LAST, genericInfo.condo)
+    }
+    for (let i = 0; i < 40; i++) {
+      const hx = -240 + rnd() * 460
+      const hz = -160 + rnd() * 420
+      if (hx > 170 && hz < 0) continue
+      bld(hx, hz, 4.5 + rnd() * 3, 6 + rnd() * 7, 4.5 + rnd() * 3, 'concrete', rnd() < 0.5 ? '#d8cdb6' : '#cfc8ba', 0xa39882, 7, LAST, 0, genericInfo.infill)
+    }
+    for (let i = 0; i < 4; i++) {
+      tower(190 + rnd() * 70, 90 + rnd() * 110, 10 + rnd() * 4, 34 + rnd() * 20, 'glass', '#6f9cb8', 0x2e4a5e, 7, LAST, genericInfo.condo)
+    }
+  }
+
+  /* ---------- landmark labels ---------- */
+  label('Railway Station', -196, 16, 173, 0)
+  label('Sadar Bazaar', -190, 20, 160, 0)
+  label('Civil Lines', -252, 14, 96, 1)
+  label('Anaj Mandi', -143, 14, 168, 2, 5)
+  label('Jharsa', -60, 14, 182, 0, 4)
+  label('Sikanderpur', 100, 13, -44, 0, 4)
+  label('Nathupur', 58, 13, -182, 0, 3)
+  label('Delhi–Jaipur Road', 40, 16, -145, 0, 2)
+  label('NH-8', 40, 18, -145, 3, 4)
+  label('NH-48', 40, 20, -145, 5)
+  label('Maruti Plant', 55, 22, -108, 3)
+  label('MG Road', 45, 22, -8, 3)
+  label('IFFCO Chowk', -93, 20, 65, 3)
+  label('Signature Towers', -109, 34, 96, 4)
+  label('Udyog Vihar', -95, 18, -180, 4)
+  label('DLF City', 90, 20, 10, 4)
+  label('CyberCity', 48, 52, -172, 5)
+  label('Kingdom of Dreams', -134, 20, 172, 5)
+  label('Ambience Mall', 122, 20, -268, 5)
+  label('Cyber Hub', 90, 14, -205, 6)
+  label('Golf Course Road', 180, 26, 45, 5)
+  label('Aravalli Ridge', 250, 34, -140, 0)
 
   /* ---------- era switching ---------- */
   const transitions: { rec: EraObject; target: number; delay: number }[] = []
+
+  function refreshLabels(): void {
+    for (const l of labels) {
+      l.sprite.visible = labelsOn && currentEra >= l.from && currentEra <= l.to
+    }
+  }
 
   function setEra(era: EraIndex, instant = false): void {
     currentEra = era
     paintGround(groundCtx, era)
     groundTex.needsUpdate = true
+    refreshLabels()
     transitions.length = 0
     let stagger = 0
     for (const rec of eraObjects) {
@@ -841,7 +1222,7 @@ export function buildWorld(scene: THREE.Scene): World {
         rec.obj.scale.y = Math.max(0.0001, want)
         continue
       }
-      if ((rec.anim === 1) !== (want === 1) || rec.anim !== want) {
+      if (rec.anim !== want) {
         transitions.push({ rec, target: want, delay: (stagger += 0.004) })
       }
     }
@@ -866,5 +1247,10 @@ export function buildWorld(scene: THREE.Scene): World {
     for (const { mat: m, night } of nightMats) m.emissiveIntensity = night * t
   }
 
-  return { setEra, setNight, update, era: () => currentEra }
+  function setLabels(on: boolean): void {
+    labelsOn = on
+    refreshLabels()
+  }
+
+  return { setEra, setNight, setLabels, update, era: () => currentEra, ground }
 }

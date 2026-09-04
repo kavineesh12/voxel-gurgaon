@@ -1,7 +1,16 @@
 import './style.css'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { buildWorld, ERA_CAPTIONS, ERAS, type EraIndex } from './world'
+import {
+  areaAt,
+  buildWorld,
+  ERA_CAPTIONS,
+  ERAS,
+  LAST,
+  roadAt,
+  type EraIndex,
+  type Info,
+} from './world'
 import { createMovers } from './movers'
 
 /* ------------------------------------------------------------------ */
@@ -38,7 +47,6 @@ sun.shadow.camera.far = 1200
 sun.shadow.bias = -0.0005
 scene.add(sun)
 
-// stars
 const starMat = new THREE.PointsMaterial({
   color: 0xffffff,
   size: 1.7,
@@ -77,34 +85,37 @@ controls.maxPolarAngle = Math.PI * 0.495
 controls.minDistance = 6
 controls.maxDistance = 1100
 
-interface ViewPreset {
+interface Pose {
   pos: THREE.Vector3
   target: THREE.Vector3
 }
 
-const VIEWS: Record<string, ViewPreset> = {
+const VIEWS: Record<string, Pose> = {
   aerial: { pos: new THREE.Vector3(0, 640, 2), target: new THREE.Vector3(0, 0, 0) },
   straight: { pos: new THREE.Vector3(60, 200, 380), target: new THREE.Vector3(-20, 0, -10) },
   eye: { pos: new THREE.Vector3(-60, 3.2, 92), target: new THREE.Vector3(-93, 4, 60) },
-  tour: { pos: new THREE.Vector3(320, 190, 260), target: new THREE.Vector3(0, 10, 0) },
+  orbit: { pos: new THREE.Vector3(320, 190, 260), target: new THREE.Vector3(0, 10, 0) },
 }
 
 let camAnim: { fromP: THREE.Vector3; fromT: THREE.Vector3; toP: THREE.Vector3; toT: THREE.Vector3; t: number } | null =
   null
 let touring = false
 
-function goToView(name: string): void {
-  const v = VIEWS[name]
-  touring = name === 'tour'
+function flyTo(pose: Pose, thenOrbit = false): void {
+  touring = thenOrbit
   controls.autoRotate = false
   controls.enabled = false
   camAnim = {
     fromP: camera.position.clone(),
     fromT: controls.target.clone(),
-    toP: v.pos.clone(),
-    toT: v.target.clone(),
+    toP: pose.pos.clone(),
+    toT: pose.target.clone(),
     t: 0,
   }
+}
+
+function goToView(name: string): void {
+  flyTo(VIEWS[name], name === 'orbit')
   document.querySelectorAll<HTMLButtonElement>('.view-btn').forEach((b) => {
     b.classList.toggle('active', b.dataset.view === name)
   })
@@ -113,7 +124,6 @@ function goToView(name: string): void {
 document.querySelectorAll<HTMLButtonElement>('.view-btn').forEach((b) => {
   b.addEventListener('click', () => goToView(b.dataset.view!))
 })
-// manual orbiting cancels the tour
 canvas.addEventListener('pointerdown', () => {
   if (touring) {
     touring = false
@@ -134,7 +144,7 @@ let playTimer = 0
 function setEra(era: EraIndex, instant = false): void {
   world.setEra(era, instant)
   movers.setEra(era)
-  eraYear.textContent = era === 5 ? 'NOW · 2025' : String(ERAS[era])
+  eraYear.textContent = era === LAST ? 'NOW · 2025' : String(ERAS[era])
   eraText.textContent = ERA_CAPTIONS[era]
   document.querySelectorAll<HTMLButtonElement>('.era-btn').forEach((b) => {
     b.classList.toggle('active', Number(b.dataset.era) === era)
@@ -159,7 +169,7 @@ playBtn.addEventListener('click', () => {
 })
 
 /* ------------------------------------------------------------------ */
-/* day / night                                                         */
+/* day / night + labels                                                */
 /* ------------------------------------------------------------------ */
 
 let nightTarget = 0
@@ -183,15 +193,172 @@ function applyNight(t: number): void {
   world.setNight(t)
 }
 
+let labelsOn = true
+const labelsBtn = document.querySelector<HTMLButtonElement>('#labels')!
+labelsBtn.addEventListener('click', () => {
+  labelsOn = !labelsOn
+  world.setLabels(labelsOn)
+  labelsBtn.classList.toggle('active', labelsOn)
+})
+
+/* ------------------------------------------------------------------ */
+/* click-to-history                                                    */
+/* ------------------------------------------------------------------ */
+
+const infoCard = document.querySelector<HTMLDivElement>('#info-card')!
+const infoName = document.querySelector<HTMLDivElement>('#info-name')!
+const infoSub = document.querySelector<HTMLDivElement>('#info-sub')!
+const infoStory = document.querySelector<HTMLDivElement>('#info-story')!
+document.querySelector('#info-close')!.addEventListener('click', () => infoCard.classList.add('hidden'))
+
+function showInfo(info: Info): void {
+  infoName.textContent = info.name
+  infoSub.textContent = info.sub
+  infoStory.textContent = info.story
+  infoCard.classList.remove('hidden')
+}
+
+const raycaster = new THREE.Raycaster()
+const pointer = new THREE.Vector2()
+let downX = 0
+let downY = 0
+
+canvas.addEventListener('pointerdown', (e) => {
+  downX = e.clientX
+  downY = e.clientY
+})
+
+canvas.addEventListener('pointerup', (e) => {
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return // it was a drag
+  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1)
+  raycaster.setFromCamera(pointer, camera)
+  const hits = raycaster.intersectObjects(scene.children, true)
+  for (const hit of hits) {
+    if (!hit.object.visible) continue
+    // walk up for building info
+    let o: THREE.Object3D | null = hit.object
+    while (o) {
+      const info = o.userData?.info as Info | undefined
+      if (info) {
+        showInfo(info)
+        return
+      }
+      o = o.parent
+    }
+    if (hit.object === world.ground) {
+      const era = world.era()
+      const road = roadAt(hit.point.x, hit.point.z, era)
+      showInfo(road ?? areaAt(hit.point.x, hit.point.z, era))
+      return
+    }
+    // hit something anonymous (person/vehicle/label) — keep looking deeper
+  }
+})
+
+/* ------------------------------------------------------------------ */
+/* City Guide — a narrated tour for first-time visitors                */
+/* ------------------------------------------------------------------ */
+
+interface GuideStop {
+  title: string
+  text: string
+  pos: [number, number, number]
+  target: [number, number, number]
+  era?: EraIndex
+}
+
+const GUIDE: GuideStop[] = [
+  {
+    title: '1 · Old Gurgaon & the Railway Station',
+    text: 'Every city has a seed — this is Gurgaon’s. The 1873 Delhi–Rewari railway and Sadar Bazaar made a market town of ~5,000 people. Everything else on this map is younger than 1980.',
+    pos: [-150, 45, 230],
+    target: [-196, 4, 165],
+  },
+  {
+    title: '2 · NH-48, the Delhi–Jaipur Road',
+    text: 'The diagonal artery. Delhi is up-right, Jaipur down-left. Gurgaon boomed because it sits on this road right at Delhi’s border — offices, malls and the airport corridor all cling to it.',
+    pos: [-40, 120, 130],
+    target: [-40, 0, -50],
+  },
+  {
+    title: '3 · IFFCO Chowk & Signature Towers',
+    text: 'The city’s pivot point, where NH-48, MG Road and the Jharsa corridor meet. The red-topped Signature Towers (1995) were new Gurgaon’s first landmark — meet someone “at IFFCO” and everyone knows where.',
+    pos: [-150, 40, 40],
+    target: [-100, 8, 80],
+  },
+  {
+    title: '4 · MG Road — the mall mile',
+    text: 'India learned mall culture here in the early 2000s: Sahara, MGF Metropolitan, City Centre in a row, with the Yellow Line metro overhead since 2010. Take the metro along this road to reach Delhi.',
+    pos: [60, 40, 60],
+    target: [50, 6, -15],
+  },
+  {
+    title: '5 · DLF CyberCity & Cyber Hub',
+    text: 'The skyline you saw from the highway. 30 lakh sq ft of offices on old Nathupur farmland — and Cyber Hub at its feet, where all of corporate Gurgaon eats. The Rapid Metro loops around it.',
+    pos: [110, 60, -120],
+    target: [50, 20, -175],
+  },
+  {
+    title: '6 · Kingdom of Dreams & Sector 29',
+    text: 'The blue dome by the HUDA corridor is Kingdom of Dreams (2010) — Bollywood musicals nightly. Around it, Sector 29 is the open-air food and microbrewery district.',
+    pos: [-90, 40, 240],
+    target: [-134, 6, 172],
+  },
+  {
+    title: '7 · Golf Course Road',
+    text: 'The condo canyon — the most expensive addresses in north India overlook the DLF golf course. Ride the Rapid Metro’s southern arm to see it tower by tower.',
+    pos: [130, 55, 130],
+    target: [200, 15, 70],
+  },
+  {
+    title: '8 · The Aravalli Ridge',
+    text: 'Older than the Himalayas — the rocky spine that bounds the city on the east. The Biodiversity Park here is reclaimed mining land, and the last green lung. That’s Gurgaon: a century, corner to corner.',
+    pos: [140, 70, -60],
+    target: [240, 15, -140],
+  },
+]
+
+const guideCard = document.querySelector<HTMLDivElement>('#guide-card')!
+const guideTitle = document.querySelector<HTMLDivElement>('#guide-title')!
+const guideText = document.querySelector<HTMLDivElement>('#guide-text')!
+const guideStep = document.querySelector<HTMLSpanElement>('#guide-step')!
+let guideIndex = -1
+
+function showGuideStop(i: number): void {
+  guideIndex = i
+  const stop = GUIDE[i]
+  setEra(stop.era ?? (LAST as EraIndex))
+  guideTitle.textContent = stop.title
+  guideText.textContent = stop.text
+  guideStep.textContent = `${i + 1} / ${GUIDE.length}`
+  guideCard.classList.remove('hidden')
+  infoCard.classList.add('hidden')
+  flyTo({ pos: new THREE.Vector3(...stop.pos), target: new THREE.Vector3(...stop.target) })
+}
+
+function endGuide(): void {
+  guideIndex = -1
+  guideCard.classList.add('hidden')
+  goToView('straight')
+}
+
+document.querySelector('#guide')!.addEventListener('click', () => showGuideStop(0))
+document.querySelector('#guide-next')!.addEventListener('click', () => {
+  if (guideIndex < GUIDE.length - 1) showGuideStop(guideIndex + 1)
+  else endGuide()
+})
+document.querySelector('#guide-prev')!.addEventListener('click', () => {
+  if (guideIndex > 0) showGuideStop(guideIndex - 1)
+})
+document.querySelector('#guide-end')!.addEventListener('click', endGuide)
+
 /* ------------------------------------------------------------------ */
 /* loop                                                                */
 /* ------------------------------------------------------------------ */
 
-setEra(5, true)
-goToView('straight')
+setEra(LAST as EraIndex, true)
 camera.position.copy(VIEWS.straight.pos)
 controls.target.copy(VIEWS.straight.target)
-camAnim = null
 
 let last = performance.now()
 
@@ -216,7 +383,7 @@ function tick(dt: number): void {
     if (playTimer > 5.5) {
       playTimer = 0
       const next = world.era() + 1
-      if (next > 5) {
+      if (next > LAST) {
         playing = false
         playBtn.classList.remove('playing')
       } else {
@@ -242,6 +409,7 @@ function tick(dt: number): void {
   } else {
     controls.update()
   }
+
   renderer.render(scene, camera)
 }
 requestAnimationFrame(frame)
@@ -252,18 +420,18 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight)
 })
 
-// debug handle for testing
+// debug handle
 ;(window as unknown as Record<string, unknown>).__vg = {
   setEra,
   goToView,
   camera,
+  showGuideStop,
   get era() {
     return world.era()
   },
   get night() {
     return { nightT, nightTarget }
   },
-  /** advance the simulation manually (testing in a throttled tab) */
   step(seconds: number) {
     const n = Math.ceil(seconds / 0.05)
     for (let i = 0; i < n; i++) tick(0.05)
